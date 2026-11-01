@@ -88,7 +88,7 @@ class HeraldActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        ensureALauncherIcon(this)
+        if (savedInstanceState == null) ensureALauncherIcon(this)
         if (windowPrefs.contains(KEY_DARK)) applyWindowTheme(windowPrefs.getBoolean(KEY_DARK, false))
         // The stored setting is read asynchronously; this copy decides the very first frame.
         val lockOn = windowPrefs.getBoolean(KEY_APP_LOCK, false)

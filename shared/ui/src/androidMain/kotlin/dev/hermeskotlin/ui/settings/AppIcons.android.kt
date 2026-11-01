@@ -126,15 +126,18 @@ internal fun launcherIconToEnable(states: Map<AppIcon, Int>): AppIcon? {
 
 /** Run at start: puts Herald back in the launcher if no icon alias is on (see [launcherIconToEnable]). */
 fun ensureALauncherIcon(context: Context) {
-    val packages = context.packageManager
-    val states = AppIcon.entries.associateWith {
-        packages.getComponentEnabledSetting(ComponentName(context.packageName, it.aliasClass))
-    }
-    launcherIconToEnable(states)?.let {
-        packages.setComponentEnabledSetting(
-            ComponentName(context.packageName, it.aliasClass),
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-            PackageManager.DONT_KILL_APP,
-        )
+    // Never crash the app or a receiver over this: an unknown component throws IllegalArgumentException.
+    runCatching {
+        val packages = context.packageManager
+        val states = AppIcon.entries.associateWith {
+            packages.getComponentEnabledSetting(ComponentName(context.packageName, it.aliasClass))
+        }
+        launcherIconToEnable(states)?.let {
+            packages.setComponentEnabledSetting(
+                ComponentName(context.packageName, it.aliasClass),
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP,
+            )
+        }
     }
 }
