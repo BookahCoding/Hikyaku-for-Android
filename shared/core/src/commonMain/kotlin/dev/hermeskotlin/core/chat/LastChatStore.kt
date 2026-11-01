@@ -15,6 +15,8 @@ data class LastChat(
     val title: String? = null,
     val bot: String? = null,
     val botLabel: String? = null,
+    /** A profile's Bot Chat found by lookup, for a profile that isn't a bot the user made: reopens with the Bot Chat rules. */
+    val botChat: Boolean = false,
 )
 
 /**

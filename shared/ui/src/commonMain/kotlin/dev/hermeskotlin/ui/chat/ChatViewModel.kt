@@ -14,6 +14,7 @@ import dev.hermeskotlin.core.chat.ChatMessage
 import dev.hermeskotlin.core.chat.ChatSession
 import dev.hermeskotlin.core.threads.ChatThread
 import dev.hermeskotlin.core.threads.ThreadsRepository
+import dev.hermeskotlin.core.bots.Bot
 import dev.hermeskotlin.core.bots.BotsApi
 import dev.hermeskotlin.core.chat.ChatState
 import dev.hermeskotlin.core.chat.ComposeDraft
@@ -157,7 +158,16 @@ data class ChatTarget(
      * chat is left in place, so the next launch can open it once a roster says the profile was made a bot.
      */
     val preserveLastChat: Boolean = false,
+    /**
+     * This is a profile's Bot Chat that was found by lookup, though the profile isn't a bot the user made
+     * (so [bot] is null). It gets the Bot Chat protections (no rename, `/new` compresses, no pinned model) and
+     * nothing else: it never opens, follows or starts a Bot Chat.
+     */
+    val isBotChat: Boolean = false,
 ) {
+    /** Whether this is some bot's permanent chat, a made bot's or a looked-up one. */
+    val keepsBotChatRules: Boolean get() = bot != null || isBotChat
+
     /**
      * The profile whose last chat this is, which the next launch reads: a bot's chat counts where the Chats
      * list was, the launch profile (null) included, not under the bot's own profile.
@@ -361,7 +371,7 @@ class ChatViewModel(
                 .map { chat ->
                     chat.storedSessionId?.takeIf { chat.hasConversation }?.let { id ->
                         val bot = target?.bot
-                        LastChat(id, chat.title, bot = bot?.name, botLabel = bot?.label)
+                        LastChat(id, chat.title, bot = bot?.name, botLabel = bot?.label, botChat = target?.isBotChat == true)
                     }
                 }
                 // Distinct before dropping nulls, so returning to the same chat after a new one saves it again.
@@ -662,6 +672,11 @@ class ChatViewModel(
         // A Bot Chat follows its bot's configuration: a model picked in it is the bot's, never pinned to the
         // chat alone, which would leave the bot and its chat running different models (#129460).
         target?.bot?.let { bot -> return setBotModel(chat, bot, model, confirmed) }
+        // A looked-up Bot Chat of a profile that isn't a made bot: the profile's model is changed, not the chat's.
+        target?.takeIf { it.isBotChat }?.let { open ->
+            val name = open.profile ?: Bot.DEFAULT
+            return setBotModel(chat, BotIdentity(name, open.title ?: name), model, confirmed)
+        }
         viewModelScope.launch {
             val result = chat.setModel(model.id, model.provider, confirmed)
             if (result is ModelSwitch.NeedsConfirmation) _picker.update { it.copy(confirm = PendingSwitch(model, result.message)) }
@@ -875,7 +890,7 @@ class ChatViewModel(
             when (val route = SlashRoute.of(command.name, catalog())) {
                 // A bot keeps one chat forever, so a fresh start there is a fresh context, as on Desktop.
                 SlashRoute.NewChat -> when {
-                    target?.bot != null -> chat.compress(arg)
+                    target?.keepsBotChatRules == true -> chat.compress(arg)
                     // A thread keeps its place: its chat is filed away and a new one takes over.
                     openThread() != null -> startThreadFresh(chat, "/${command.name}")
                     else -> _requests.send(ChatRequest.NewChat)
@@ -904,7 +919,7 @@ class ChatViewModel(
                 SlashRoute.Title -> when {
                     arg.isEmpty() -> onGateway()
                     // Its title is what makes it the bot's chat; renamed, the bot would start a new one.
-                    target?.bot != null -> chat.showCommandOutput("/title", "A bot's chat keeps its name, so the bot can find it.", failed = true)
+                    target?.keepsBotChatRules == true -> chat.showCommandOutput("/title", "A bot's chat keeps its name, so the bot can find it.", failed = true)
                     else -> chat.retitle(arg)
                 }
                 SlashRoute.Branch -> {

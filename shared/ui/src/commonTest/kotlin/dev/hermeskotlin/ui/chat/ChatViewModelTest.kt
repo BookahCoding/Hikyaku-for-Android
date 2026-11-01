@@ -203,6 +203,30 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun aLookedUpBotChatRefusesTitleAndCompressesOnNew() = runTest(dispatcher) {
+        val (vm, _) = viewModel()
+        val requests = mutableListOf<ChatRequest>()
+        val collecting = launch { vm.requests.collect { requests += it } }
+        vm.open(ChatTarget(gateway, "b1", "Bot Chat", profile = null, isBotChat = true))
+        runCurrent()
+
+        vm.composer.setTextAndPlaceCursorAtEnd("/title Renamed")
+        vm.send()
+        runCurrent()
+        val title = vm.state.value.messages.filterIsInstance<ChatMessage.Command>().last()
+        assertEquals("/title", title.command)
+        assertTrue(title.failed)
+        assertEquals("A bot's chat keeps its name, so the bot can find it.", title.output)
+
+        vm.composer.setTextAndPlaceCursorAtEnd("/new")
+        vm.send()
+        runCurrent()
+        assertTrue(requests.isEmpty())
+        assertEquals("/compress", vm.state.value.messages.filterIsInstance<ChatMessage.Command>().last().command)
+        collecting.cancel()
+    }
+
+    @Test
     fun newAndResetStartASessionInAProfileChatAndCompressABotChat() = runTest(dispatcher) {
         val (vm, _) = viewModel()
         val requests = mutableListOf<ChatRequest>()

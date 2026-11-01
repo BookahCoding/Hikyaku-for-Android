@@ -508,12 +508,16 @@ class AppViewModelTest {
     /** A backend that can only look: any attempt to start a Bot Chat fails the test. */
     private class LookupOnly(private val chat: BotSession?, private val fails: Boolean = false) : BotChatBackend {
         val lookups = mutableListOf<String>()
+        val starts = mutableListOf<String>()
         override suspend fun botChat(profile: String): BotSession? {
             lookups += profile
             if (fails) error("lookup failed")
             return chat
         }
-        override suspend fun startBotChat(profile: String): String = error("must never start a Bot Chat for $profile")
+        override suspend fun startBotChat(profile: String): String {
+            starts += profile
+            error("must never start a Bot Chat for $profile")
+        }
     }
 
     private val reply = ComposeDraft(text = "Re: report\n> a\n\n")
@@ -531,10 +535,45 @@ class AppViewModelTest {
         val chat = app.route.first { it is Route.Chat && it.target.storedSessionId == "tip" } as Route.Chat
 
         assertEquals(listOf("froebel"), backend.lookups)
+        assertTrue(backend.starts.isEmpty(), "started ${backend.starts}")
         assertEquals("froebel", chat.target.profile)
         assertNull(chat.target.bot)
         assertEquals(reply, chat.target.draft)
+        assertTrue(chat.target.isBotChat)
         assertEquals("froebel", app.chatsProfile.value)
+    }
+
+    @Test
+    fun aReplyForTheDefaultProfileOpensItsBotChatInTheLaunchProfile() = runTest {
+        gateways.save(home)
+        signedIn(home)
+        BotOptInStore(store).record(home.gatewayUrl, listOf(plain("default", "Shisha"), made("scribe")))
+        val backend = LookupOnly(BotSession(id = "root", resolvedId = "tip"))
+        val app = viewModel(backend)
+        app.awaitChat(home)
+
+        links.shareToBot("default", reply)
+        val chat = app.route.first { it is Route.Chat && it.target.storedSessionId == "tip" } as Route.Chat
+
+        assertNull(chat.target.profile)
+        assertNull(chat.target.bot)
+        assertEquals(reply, chat.target.draft)
+        assertTrue(chat.target.isBotChat)
+        assertEquals(listOf("default"), backend.lookups)
+        assertTrue(backend.starts.isEmpty())
+    }
+
+    @Test
+    fun aLookedUpBotChatReopensWithItsProtectionsOnRelaunch() = runTest {
+        gateways.save(home)
+        signedIn(home)
+        lastChats.set(home.gatewayUrl, LastChat("tip", "Bot Chat", botChat = true))
+
+        val chat = viewModel().awaitChat(home)
+
+        assertEquals("tip", chat.target.storedSessionId)
+        assertNull(chat.target.bot)
+        assertTrue(chat.target.isBotChat)
     }
 
     @Test
@@ -550,6 +589,7 @@ class AppViewModelTest {
         val chat = app.route.first { it is Route.Chat && it.target.draft == reply } as Route.Chat
 
         assertEquals(listOf("froebel"), backend.lookups)
+        assertTrue(backend.starts.isEmpty(), "started ${backend.starts}")
         assertNull(chat.target.storedSessionId)
         assertEquals("froebel", chat.target.profile)
     }
@@ -567,6 +607,7 @@ class AppViewModelTest {
         val chat = app.route.first { it is Route.Chat && it.target.draft == reply } as Route.Chat
 
         assertEquals(listOf("froebel"), backend.lookups)
+        assertTrue(backend.starts.isEmpty(), "started ${backend.starts}")
         assertNull(chat.target.storedSessionId)
         assertEquals("froebel", chat.target.profile)
     }
