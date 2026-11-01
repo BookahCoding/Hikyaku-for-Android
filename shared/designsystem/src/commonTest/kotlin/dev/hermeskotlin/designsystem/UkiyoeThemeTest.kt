@@ -138,12 +138,10 @@ class UkiyoeThemeTest {
 
     @Test
     fun theOtherPresetsAreExactlyWhatTheyWere() {
-        // Only the Hokusai themes bring neutrals of their own; the plain presets keep the graphite and off-white sets.
-        for (other in listOf(AppTheme.Blue, AppTheme.Violet, AppTheme.Green, AppTheme.Orange, AppTheme.Pink, AppTheme.Teal)) {
-            assertNull(other.light.neutrals, other.name)
-            assertNull(other.dark.neutrals, other.name)
-            assertNull(other.black.neutrals, other.name)
-        }
+        // Blue is kept (unlisted) as the neutral fallback: it brings no neutrals of its own, so the graphite and off-white sets stay.
+        assertNull(AppTheme.Blue.light.neutrals)
+        assertNull(AppTheme.Blue.dark.neutrals)
+        assertNull(AppTheme.Blue.black.neutrals)
         val blue = AppTheme.Blue
         val light = lightColors(blue.light)
         val dark = darkColors(blue.dark)

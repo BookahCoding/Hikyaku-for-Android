@@ -50,10 +50,21 @@ class AppThemeTest {
     }
 
     @Test
-    fun anUnknownOrMissingNameIsBlue() {
-        assertEquals(AppTheme.Blue, AppTheme.named("Neon"))
-        assertEquals(AppTheme.Blue, AppTheme.named(null))
-        assertEquals(AppTheme.Teal, AppTheme.named("Teal"))
+    fun anUnknownOrMissingNameIsUkiyoe() {
+        assertEquals(AppTheme.Ukiyoe, AppTheme.named("Neon"))
+        assertEquals(AppTheme.Ukiyoe, AppTheme.named(null))
+        assertEquals(AppTheme.Ukiyoe, AppTheme.named(""))
+        // An accent from before themes replaced them.
+        for (old in listOf("Blue", "Violet", "Green", "Orange", "Pink", "Teal")) assertEquals(AppTheme.Ukiyoe, AppTheme.named(old), old)
+        assertEquals(Themes.GreatWave, AppTheme.named("Great Wave"))
+    }
+
+    @Test
+    fun theListIsTheSixThemesInOrder() {
+        assertEquals(
+            listOf("Ukiyo-e", "Great Wave", "Red Fuji", "Thirty-six Views", "Shibuya Night", "Akihabara"),
+            AppTheme.all.map { it.name },
+        )
     }
 
     @Test

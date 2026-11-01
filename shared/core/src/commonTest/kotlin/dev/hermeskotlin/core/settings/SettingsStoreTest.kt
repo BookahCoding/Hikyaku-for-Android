@@ -157,6 +157,14 @@ class SettingsStoreTest {
     }
 
     @Test
+    fun theDefaultThemeIsUkiyoeAndAnOldAccentNameIsKeptAsStored() = runTest {
+        assertEquals("Ukiyo-e", DEFAULT_THEME)
+        assertEquals("Ukiyo-e", AppSettings().theme)
+        val disk = InMemoryKeyValueStore().apply { put("settings.v1", """{"accent":"Teal"}""") }
+        assertEquals(AppSettings(theme = "Teal"), SettingsStore(disk, backgroundScope).settings.filterNotNull().first())
+    }
+
+    @Test
     fun settingsSavedBeforeTheRenameStillLoad() = runTest {
         val disk = InMemoryKeyValueStore().apply { put("settings.v1", """{"theme":"Dark","accent":"Teal"}""") }
         val loaded = SettingsStore(disk, backgroundScope).settings.filterNotNull().first()

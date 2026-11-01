@@ -24,7 +24,7 @@ val PureBlack = ColorScheme("pure_black")
  */
 val HermesTheme = buildHermesTheme(AppTheme.Blue)
 
-private val accentThemes = AppTheme.all.associateWith { if (it == AppTheme.Blue) HermesTheme else buildHermesTheme(it) }
+private val accentThemes = (AppTheme.all + AppTheme.Blue).associateWith { if (it == AppTheme.Blue) HermesTheme else buildHermesTheme(it) }
 
 /** The app theme with the [accent] picked in Settings. */
 fun hermesTheme(accent: AppTheme) = accentThemes.getValue(accent)

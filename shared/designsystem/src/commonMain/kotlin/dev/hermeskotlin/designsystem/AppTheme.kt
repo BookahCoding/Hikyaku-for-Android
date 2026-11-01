@@ -29,10 +29,9 @@ class ThemeVariant(
 val ThemeVariant.hasSecondary: Boolean get() = secondary != accent
 
 /**
- * A theme the user can pick in Settings. [Blue] is Herald blue #2F6BF5: one fill with white on it in both
- * schemes, and a lighter blue for text on dark. The others use their accent as fill and text alike, so a theme
- * only needs a light and a dark accent. Light accents carry white text and dark accents near-black text, each
- * at 4.5:1 or more, and every accent's text reads at 4.5:1 on its background (AppThemeTest).
+ * A theme the user can pick in Settings. [Blue] is Herald blue #2F6BF5, kept out of [all] as the neutral
+ * fallback for [LocalAppTheme] and the default HermesTheme. Light accents carry white text and dark accents
+ * near-black text, each at 4.5:1 or more, and every accent's text reads at 4.5:1 on its background (AppThemeTest).
  */
 class AppTheme internal constructor(
     val name: String,
@@ -51,11 +50,6 @@ class AppTheme internal constructor(
             dark = ThemeVariant(HeraldBlue, Color.White, text = Color(0xFF7AA5FF), soft = Color(0xFF4A84FE).copy(alpha = 0.14f)),
             black = ThemeVariant(HeraldBlue, Color.White, text = Color(0xFF7AA5FF), soft = Color(0xFF4A84FE).copy(alpha = 0.14f)),
         )
-        val Violet = mixed("Violet", light = Color(0xFF7C3AED), dark = Color(0xFFA78BFA))
-        val Green = mixed("Green", light = Color(0xFF137538), dark = Color(0xFF3FB950))
-        val Orange = mixed("Orange", light = Color(0xFFB04700), dark = Color(0xFFF0883E))
-        val Pink = mixed("Pink", light = Color(0xFFB0327E), dark = Color(0xFFF778BA))
-        val Teal = mixed("Teal", light = Color(0xFF0C6A84), dark = Color(0xFF22D3EE))
 
         /**
          * "Ukiyo-e": a Japanese woodblock print, in the colors measured from one. Washi paper (#F4EDD9) and sumi ink
@@ -103,20 +97,11 @@ class AppTheme internal constructor(
             )
         }
 
-        val all: List<AppTheme> by lazy { listOf(Blue, Violet, Green, Orange, Pink, Teal, Ukiyoe, Themes.GreatWave, Themes.RedFuji, Themes.ThirtySixViews, Themes.Shibuya, Themes.Akihabara) }
-
-        /** The palette called [name], or [Blue] for a name this version doesn't know. */
-        fun named(name: String?): AppTheme = all.firstOrNull { it.name == name } ?: Blue
-
-        // The tints sit at Blue's alphas.
-        private fun mixed(name: String, light: Color, dark: Color): AppTheme {
-            val darkColors = ThemeVariant(dark, DarkText, text = dark, soft = dark.copy(alpha = 0.14f))
-            return AppTheme(
-                name,
-                light = ThemeVariant(light, Color.White, text = light, soft = light.copy(alpha = 0.10f)),
-                dark = darkColors,
-                black = darkColors,
-            )
+        val all: List<AppTheme> by lazy {
+            listOf(Ukiyoe, Themes.GreatWave, Themes.RedFuji, Themes.ThirtySixViews, Themes.Shibuya, Themes.Akihabara)
         }
+
+        /** The theme called [name], or [Ukiyoe] for a name this version doesn't know (an accent from before themes, say). */
+        fun named(name: String?): AppTheme = all.firstOrNull { it.name == name } ?: Ukiyoe
     }
 }

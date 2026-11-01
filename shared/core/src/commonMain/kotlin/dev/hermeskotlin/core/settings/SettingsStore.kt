@@ -15,8 +15,8 @@ import kotlinx.serialization.Serializable
 
 enum class ThemeMode { System, Light, Dark }
 
-/** The theme [AppSettings.theme] starts with: Desktop's blue. */
-const val DEFAULT_THEME = "Blue"
+/** The theme [AppSettings.theme] starts with: Ukiyo-e. */
+const val DEFAULT_THEME = "Ukiyo-e"
 
 /** How much bigger or smaller than the system font size the app draws text. */
 enum class TextSize(val scale: Float) {
@@ -67,7 +67,7 @@ data class AppSettings(
     val pureBlack: Boolean = false,
     /**
      * The theme's name (the design system's `AppTheme`; stored under the key "accent"). A string, not an enum, so a theme that a
-     * newer version added reads as the default here instead of making the whole stored settings unreadable.
+     * newer version added (or an accent from before themes) reads as the default here instead of making the whole stored settings unreadable.
      */
     @SerialName("accent") val theme: String = DEFAULT_THEME,
     /**
