@@ -1,6 +1,6 @@
 # Themes instead of accents, with matching app icons — design
 
-Date: 2026-11-01. Status: awaiting review.
+Date: 2026-11-01. Status: implemented on feat/themes (see the plan of the same date).
 
 ## Goal
 
