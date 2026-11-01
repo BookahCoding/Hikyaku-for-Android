@@ -22,15 +22,15 @@ val PureBlack = ColorScheme("pure_black")
  * `HermesTheme(ColorScheme.Dark) { ... }`, or [PureBlack]. [hermesTheme] gives it in another accent.
  * The colors are in ThemeColors.kt.
  */
-val HermesTheme = buildHermesTheme(AccentPalette.Blue)
+val HermesTheme = buildHermesTheme(AppTheme.Blue)
 
-private val accentThemes = AccentPalette.all.associateWith { if (it == AccentPalette.Blue) HermesTheme else buildHermesTheme(it) }
+private val accentThemes = AppTheme.all.associateWith { if (it == AppTheme.Blue) HermesTheme else buildHermesTheme(it) }
 
 /** The app theme with the [accent] picked in Settings. */
-fun hermesTheme(accent: AccentPalette) = accentThemes.getValue(accent)
+fun hermesTheme(accent: AppTheme) = accentThemes.getValue(accent)
 
-private fun buildHermesTheme(palette: AccentPalette) = buildThemeV2 {
-    name = "HermesTheme" + palette.name.takeIf { palette != AccentPalette.Blue }.orEmpty()
+private fun buildHermesTheme(palette: AppTheme) = buildThemeV2 {
+    name = "HermesTheme" + palette.name.takeIf { palette != AppTheme.Blue }.orEmpty()
     colorSchemeTransitionSpec = tween(180)
 
     properties[radii] = mapOf(

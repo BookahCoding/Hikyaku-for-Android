@@ -116,7 +116,7 @@ import dev.hermeskotlin.core.settings.ThemeMode
 import dev.hermeskotlin.core.settings.VoicePause
 import dev.hermeskotlin.core.settings.DictationEngine
 import dev.hermeskotlin.core.settings.WallpaperStrength
-import dev.hermeskotlin.designsystem.AccentPalette
+import dev.hermeskotlin.designsystem.AppTheme
 import dev.hermeskotlin.designsystem.accent
 import dev.hermeskotlin.designsystem.accentText
 import dev.hermeskotlin.designsystem.background
@@ -369,7 +369,7 @@ internal fun SettingsView(
                     Divider()
                     Field("Accent", detail = "Buttons, links and your own messages.") {
                         AccentPicker(
-                            selected = AccentPalette.named(settings.accent),
+                            selected = AppTheme.named(settings.accent),
                             onSelect = { palette -> onUpdate { it.copy(accent = palette.name) } },
                         )
                     }
@@ -934,15 +934,15 @@ internal fun IconTile(icon: ImageVector) {
 }
 
 /**
- * One 30dp swatch per accent preset, drawn in the accent the current light or dark scheme would use, the
+ * One 30dp swatch per theme, drawn in the accent the current light or dark scheme would use, the
  * picked one ringed in its own colour. Each is a 48dp touch target; on a narrow phone or with a large display
  * size the row wraps.
  */
 @Composable
-private fun AccentPicker(selected: AccentPalette, onSelect: (AccentPalette) -> Unit) {
+private fun AccentPicker(selected: AppTheme, onSelect: (AppTheme) -> Unit) {
     val dark = Theme[colors][background].luminance() < 0.5f
     FlowRow(Modifier.selectableGroup()) {
-        AccentPalette.all.forEach { palette ->
+        AppTheme.all.forEach { palette ->
             val isSelected = palette == selected
             val color = if (dark) palette.dark.accent else palette.light.accent
             Box(

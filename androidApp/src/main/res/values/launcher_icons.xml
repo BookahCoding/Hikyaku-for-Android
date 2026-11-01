@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The app icons the user can pick in Settings (AppIcons), besides the default brand blue in colors.xml. -->
 <resources>
-    <!-- The accents' light-scheme colors (the design system's AccentPalette), behind the white mark. -->
+    <!-- The accents' light-scheme colors (the design system's AppTheme), behind the white mark. -->
     <color name="launcher_violet">#7C3AED</color>
     <color name="launcher_green">#137538</color>
     <color name="launcher_orange">#B04700</color>

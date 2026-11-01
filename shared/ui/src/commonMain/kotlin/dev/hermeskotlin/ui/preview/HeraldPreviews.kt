@@ -109,9 +109,9 @@ import com.composeunstyled.theme.ColorScheme
 import dev.hermeskotlin.core.chat.ChatState
 import dev.hermeskotlin.core.models.PickerScope
 import dev.hermeskotlin.core.settings.AppSettings
-import dev.hermeskotlin.core.settings.DEFAULT_ACCENT
-import dev.hermeskotlin.designsystem.AccentPalette
-import dev.hermeskotlin.designsystem.LocalAccentPalette
+import dev.hermeskotlin.core.settings.DEFAULT_THEME
+import dev.hermeskotlin.designsystem.AppTheme
+import dev.hermeskotlin.designsystem.LocalAppTheme
 import dev.hermeskotlin.designsystem.hermesTheme
 import dev.hermeskotlin.ui.LocalAppSettings
 import dev.hermeskotlin.ui.chat.ChatView
@@ -202,14 +202,14 @@ enum class PreviewScene(val label: String) {
 
 /**
  * One scene full-screen in the app theme: Android Studio previews and the debug screenshot gallery both use it.
- * [accent] is an [AccentPalette] name; [glow] is the Glow setting.
+ * [accent] is an [AppTheme] name; [glow] is the Glow setting.
  */
 @Composable
-fun HeraldPreview(scene: PreviewScene, dark: Boolean = true, accent: String = DEFAULT_ACCENT, glow: Boolean = true) {
-    val palette = AccentPalette.named(accent)
+fun HeraldPreview(scene: PreviewScene, dark: Boolean = true, accent: String = DEFAULT_THEME, glow: Boolean = true) {
+    val palette = AppTheme.named(accent)
     hermesTheme(palette)(if (dark) ColorScheme.Dark else ColorScheme.Light) {
         CompositionLocalProvider(
-            LocalAccentPalette provides palette,
+            LocalAppTheme provides palette,
             LocalAppSettings provides AppSettings(showPet = false, glow = glow),
             LocalGlow provides glow,
         ) {

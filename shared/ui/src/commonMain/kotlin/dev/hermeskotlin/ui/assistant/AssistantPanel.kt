@@ -77,8 +77,8 @@ import dev.hermeskotlin.core.chat.InputRequest
 import dev.hermeskotlin.core.connection.ConnectionState
 import dev.hermeskotlin.core.settings.SettingsStore
 import dev.hermeskotlin.core.settings.ThemeMode
-import dev.hermeskotlin.designsystem.AccentPalette
-import dev.hermeskotlin.designsystem.LocalAccentPalette
+import dev.hermeskotlin.designsystem.AppTheme
+import dev.hermeskotlin.designsystem.LocalAppTheme
 import dev.hermeskotlin.designsystem.PureBlack
 import dev.hermeskotlin.designsystem.accent
 import dev.hermeskotlin.designsystem.accentSoft
@@ -169,10 +169,10 @@ fun AssistantPanel(
         else -> ColorScheme.Dark
     }
     val density = LocalDensity.current
-    val palette = AccentPalette.named(settings.accent)
+    val palette = AppTheme.named(settings.accent)
     hermesTheme(palette)(scheme) {
         CompositionLocalProvider(
-            LocalAccentPalette provides palette,
+            LocalAppTheme provides palette,
             LocalAppSettings provides settings,
             LocalCodeWrap provides settings.wrapCode,
             LocalGlow provides settings.glow,

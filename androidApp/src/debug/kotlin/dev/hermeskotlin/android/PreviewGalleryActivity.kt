@@ -12,7 +12,7 @@ import dev.hermeskotlin.ui.preview.PreviewScene
 /**
  * Debug builds only: shows one sample screen full-screen, for the README screenshots.
  * `adb shell am start -n dev.herald.android/dev.hermeskotlin.android.PreviewGalleryActivity --es scene Reply --ez dark true`
- * (and `--es accent Violet` for another accent preset, `--ez glow false` with the Glow setting off).
+ * (and `--es accent Violet` for another theme, `--ez glow false` with the Glow setting off).
  */
 class PreviewGalleryActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

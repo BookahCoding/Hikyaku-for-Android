@@ -51,8 +51,8 @@ internal object Palette {
 
 /**
  * The neutral roles one scheme is drawn with: the grounds, the text steps, the hairlines, the inverse pill and the
- * three signal colors. The accent presets share the graphite and off-white sets below; a theme with a look of its
- * own (see [AccentPalette.Ukiyoe]) brings its own through [AccentColors.neutrals].
+ * three signal colors. The themes share the graphite and off-white sets below; a theme with a look of its
+ * own (see [AppTheme.Ukiyoe]) brings its own through [ThemeVariant.neutrals].
  */
 class Neutrals(
     val bg: Color,
@@ -107,7 +107,7 @@ class Neutrals(
     }
 }
 
-internal fun lightColors(accentColors: AccentColors, n: Neutrals = accentColors.neutrals ?: Neutrals.Light) = mapOf(
+internal fun lightColors(accentColors: ThemeVariant, n: Neutrals = accentColors.neutrals ?: Neutrals.Light) = mapOf(
     background to n.bg,
     surface to n.surface,
     surface2 to n.surface2,
@@ -141,10 +141,10 @@ internal fun lightColors(accentColors: AccentColors, n: Neutrals = accentColors.
 )
 
 /** Pure black: the dark roles on a true black ground, with each graphite step pulled toward black. */
-internal fun pureBlackColors(accentColors: AccentColors) = darkColors(accentColors, accentColors.neutrals ?: Neutrals.Black)
+internal fun pureBlackColors(accentColors: ThemeVariant) = darkColors(accentColors, accentColors.neutrals ?: Neutrals.Black)
 
 /** Dark and pure black share every role but the grounds they sit on. */
-internal fun darkColors(accentColors: AccentColors, n: Neutrals = accentColors.neutrals ?: Neutrals.Dark) = mapOf(
+internal fun darkColors(accentColors: ThemeVariant, n: Neutrals = accentColors.neutrals ?: Neutrals.Dark) = mapOf(
     background to n.bg,
     surface to n.surface,
     surface2 to n.surface2,
