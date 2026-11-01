@@ -561,7 +561,7 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
         onCheckpoints = chat::openCheckpoints,
         // Only a chat carrying a goal, loop or heartbeat gets the row.
         onControl = chat::openControl.takeIf { chatState.control != null },
-        botChat = route.target.bot != null,
+        botChat = route.target.keepsBotChatRules,
         onStartFresh = openBot?.let { bot -> { startOver = bot } },
         onOpenChat = app::openSession,
     )

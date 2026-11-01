@@ -6,6 +6,7 @@ import dev.hermeskotlin.core.auth.AuthApi
 import dev.hermeskotlin.core.bots.Bot
 import dev.hermeskotlin.core.bots.BotChats
 import dev.hermeskotlin.core.bots.BotOptInStore
+import dev.hermeskotlin.core.bots.BotsApi
 import dev.hermeskotlin.core.bots.BotSession
 import dev.hermeskotlin.core.cache.OfflineCache
 import kotlinx.coroutines.CancellationException
@@ -124,6 +125,8 @@ class AppViewModel(
             combine(links.pending, _route) { link, route -> link?.takeIf { route is Route.Chat } }
                 .filterNotNull()
                 .collect { link ->
+                    // combine can hand over a link again when only the route changed, after it was consumed: skip it.
+                    if (links.pending.value != link) return@collect
                     links.consume(link)
                     val open = (_route.value as? Route.Chat)?.target?.storedSessionId
                     val bot = link.bot
@@ -278,7 +281,27 @@ class AppViewModel(
                 val profile = chatsKey(bot)
                 if (profile != currentProfile()) profiles.set(gateway.gatewayUrl, profile)
                 _chatsProfile.value = profile
-                _route.value = if (draft != null) Route.Chat(newChatTarget(gateway, profile).copy(draft = draft)) else home(gateway)
+                // A reply to a cron run: the output went into this profile's existing Bot Chat, so open that, as
+                // an ordinary session. Lookup only (BotChats.find cannot start a chat); no chat found, or no
+                // answer, falls back to a new chat with the draft.
+                val existing = if (draft != null && storedSessionId == null) {
+                    try {
+                        botChats.find(bot)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        null
+                    }
+                } else {
+                    null
+                }
+                _route.value = when {
+                    draft == null -> home(gateway)
+                    existing != null -> Route.Chat(
+                        ChatTarget(gateway, existing, label?.takeIf { it.isNotBlank() } ?: BotsApi.BOT_CHAT_TITLE, profile = profile, draft = draft, botChatProfile = bot),
+                    )
+                    else -> Route.Chat(newChatTarget(gateway, profile).copy(draft = draft))
+                }
                 return@launch
             }
             val name = label?.takeIf { it.isNotBlank() } ?: Bot(name = bot).label
@@ -415,7 +438,7 @@ class AppViewModel(
             bot != null && known?.contains(bot) == true ->
                 botChatTarget(gateway, last.sessionId, bot, last.botLabel ?: bot).also(::followBotChat)
             bot != null -> newChatTarget(gateway, profile).copy(preserveLastChat = known == null)
-            else -> ChatTarget(gateway, last.sessionId, last.title, profile = profile)
+            else -> ChatTarget(gateway, last.sessionId, last.title, profile = profile, botChatProfile = last.botChatProfile)
         }
         return Route.Chat(target)
     }
