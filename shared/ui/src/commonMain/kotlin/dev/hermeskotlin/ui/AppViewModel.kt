@@ -376,6 +376,7 @@ class AppViewModel(
             auth.signOut(gateway.gatewayUrl)
             // Again: a list read that was under way may have saved itself since.
             cache?.forgetGateway(gateway.gatewayUrl)
+            pushLog?.forget(gateway.gatewayUrl.value)
             sessionsChanged.update { it + 1 }
             _route.value = Route.SignIn(gateway)
         }

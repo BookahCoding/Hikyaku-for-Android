@@ -19,6 +19,7 @@ import dev.hermeskotlin.core.push.PushGateway
 import dev.hermeskotlin.core.push.PushKeys
 import dev.hermeskotlin.core.push.PushLogEntry
 import dev.hermeskotlin.core.push.PushLogStore
+import dev.hermeskotlin.core.push.PushMessage
 import dev.hermeskotlin.core.push.PushRegistration
 import dev.hermeskotlin.core.push.PushSetup
 import dev.hermeskotlin.core.profiles.ProfileStore
@@ -154,8 +155,8 @@ class InboxViewModelTest {
         val socket = PluginGateway(CoroutineScope(dispatcher)) { """{"ok":true,"runs":[]}""" }
         val vm = viewModel(socket)
         val now = 1_000L
-        pushLog.record(one.gatewayUrl.value, PushLogEntry("m1", "message", now, bot = "shisha", label = "Shisha", session = "s1", text = "hi"), now)
-        pushLog.record(one.gatewayUrl.value, PushLogEntry("m2", "message", now, text = "no bot"), now)
+        pushLog.record(one.gatewayUrl.value, PushLogEntry("m1", PushMessage.BOT_MESSAGE, now, bot = "shisha", label = "Shisha", session = "s1", text = "hi"), now)
+        pushLog.record(one.gatewayUrl.value, PushLogEntry("m2", PushMessage.BOT_MESSAGE, now, text = "no bot"), now)
         vm.bind(one)
         runCurrent()
         assertEquals(InboxTab.Runs, vm.state.value.tab)
@@ -173,6 +174,41 @@ class InboxViewModelTest {
         assertEquals("shisha", link?.bot)
         assertEquals("s1", link?.storedSessionId)
         assertEquals(setOf("m1"), vm.state.value.readMessages)
+    }
+
+    @Test
+    fun markAllReadOnTheMessagesTabClearsMessagesAndLeavesRunsAlone() = runTest(dispatcher) {
+        val socket = PluginGateway(CoroutineScope(dispatcher)) { """{"ok":true,"runs":${runsJson(run("a", 50))}}""" }
+        val vm = viewModel(socket)
+        val now = 1_000L
+        pushLog.record(one.gatewayUrl.value, PushLogEntry("m1", PushMessage.BOT_MESSAGE, now, bot = "shisha", session = "s1", text = "hi"), now)
+        pushLog.record(one.gatewayUrl.value, PushLogEntry("m2", PushMessage.BOT_MESSAGE, now, bot = "shisha", session = "s2", text = "yo"), now)
+        vm.bind(one)
+        runCurrent()
+        vm.setTab(InboxTab.Messages)
+        val runsUnread = vm.state.value.unread
+        val runsRead = vm.state.value.read
+        assertEquals(2, vm.state.value.unreadMessages)
+
+        vm.markAllRead()
+        runCurrent()
+        assertEquals(0, vm.state.value.unreadMessages)
+        assertEquals(runsUnread, vm.state.value.unread)
+        assertEquals(runsRead, vm.state.value.read)
+    }
+
+    @Test
+    fun aCallRowOpensItsBotChatWithoutASession() = runTest(dispatcher) {
+        val vm = viewModel(PluginGateway(CoroutineScope(dispatcher)) { """{"ok":true,"runs":[]}""" })
+        val now = 1_000L
+        pushLog.record(one.gatewayUrl.value, PushLogEntry("c1", "phone_call", now, bot = "shisha", session = "s1", text = "ring"), now)
+        vm.bind(one)
+        runCurrent()
+        vm.openMessage(vm.state.value.messages.first())
+        runCurrent()
+        val link = chatLinks.pending.value
+        assertEquals("shisha", link?.bot)
+        assertEquals(null, link?.storedSessionId)
     }
 
     @Test

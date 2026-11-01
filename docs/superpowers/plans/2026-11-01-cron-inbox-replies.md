@@ -23,6 +23,7 @@
 **Spec deviations (decided while planning):**
 1. `cron_run` pushes are already kept by `InboxStore`, so the push log records `bot_message` and `phone_call` only.
 2. The spec's "map `/heartbeat` to a cron job" is reduced to a clear failure message (Task 6). The live gateway now carries a local fix for the bug (upstream issue NousResearch/hermes-agent#147596), so a real heartbeat works; the cron mapping would only help unpatched gateways.
+3. The chat card shows the job name and first lines only, because TranscriptEvent.Routine has no time or status.
 
 ## Review Focus
 

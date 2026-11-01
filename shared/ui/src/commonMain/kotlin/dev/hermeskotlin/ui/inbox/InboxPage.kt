@@ -189,7 +189,7 @@ internal fun InboxPage(
     PlatformBackHandler(enabled = visible && state.open == null && !state.choosing && state.grouping) { viewModel.closeGroups() }
     // In a folder, back goes to the folders before it leaves the Inbox.
     val inFolder = state.groups.layout == InboxLayout.Folders && state.shownFilter != InboxFilter.All
-    PlatformBackHandler(enabled = visible && state.open == null && !state.choosing && !state.grouping && inFolder) {
+    PlatformBackHandler(enabled = visible && state.open == null && !state.choosing && !state.grouping && inFolder && state.tab == InboxTab.Runs) {
         viewModel.setFilter(InboxFilter.All)
     }
 
@@ -220,8 +220,10 @@ internal fun InboxView(
     runsList: LazyListState = rememberLazyListState(),
 ) {
     val unread = state.unread
+    val onMessages = state.tab == InboxTab.Messages
+    val shownUnread = if (onMessages) state.unreadMessages else unread
     val folders = state.groups.layout == InboxLayout.Folders
-    val inFolder = folders && state.shownFilter != InboxFilter.All
+    val inFolder = folders && state.shownFilter != InboxFilter.All && !onMessages
     val folderName = when (val f = state.shownFilter) {
         is InboxFilter.Job -> state.chips.firstOrNull { it.filter == f }?.label
         is InboxFilter.Group -> f.name ?: "Other"
@@ -232,6 +234,11 @@ internal fun InboxView(
         if (inFolder) folderName ?: "Inbox" else "Inbox",
         onBack = if (inFolder) ({ viewModel.setFilter(InboxFilter.All) }) else onBack,
         subtitle = when {
+            onMessages -> when {
+                state.messages.isEmpty() -> null
+                state.unreadMessages > 0 -> "${state.unreadMessages} unread · pushed to this phone"
+                else -> "Pushed to this phone"
+            }
             state.runs.isEmpty() -> null
             state.shownFilter is InboxFilter.Job -> state.shown.size.let { "$it ${if (it == 1) "report" else "reports"} from ${state.nameOf(state.shown.first())}" }
             state.shownFilter is InboxFilter.Group -> state.shown.size.let { n ->
@@ -241,7 +248,7 @@ internal fun InboxView(
             else -> "From the jobs you follow"
         },
     ) {
-        if (unread > 0) IconButton(Lucide.CheckCheck, contentDescription = "Mark all read", onClick = viewModel::markAllRead)
+        if (shownUnread > 0) IconButton(Lucide.CheckCheck, contentDescription = "Mark all read", onClick = viewModel::markAllRead)
         IconButton(Lucide.FolderTree, contentDescription = "Folders and groups", onClick = viewModel::openGroups)
         IconButton(Lucide.Settings2, contentDescription = "Choose jobs", onClick = viewModel::chooseJobs)
     }

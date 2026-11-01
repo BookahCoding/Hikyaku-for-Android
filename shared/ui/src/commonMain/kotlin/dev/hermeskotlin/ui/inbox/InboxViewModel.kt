@@ -22,6 +22,7 @@ import dev.hermeskotlin.core.network.ApiResult
 import dev.hermeskotlin.core.push.PushApi
 import dev.hermeskotlin.core.push.PushLogEntry
 import dev.hermeskotlin.core.push.PushLogStore
+import dev.hermeskotlin.core.push.PushMessage
 import dev.hermeskotlin.core.push.PushSetup
 import dev.hermeskotlin.core.push.PushStatus
 import dev.hermeskotlin.core.settings.SettingsStore
@@ -348,6 +349,8 @@ class InboxViewModel(
     init {
         viewModelScope.launch {
             pushLog.state.collect { log ->
+                // Another gateway's log (the store is shared, and moves first) is not this one's.
+                if (pushLog.bound != gateway?.gatewayUrl?.value) return@collect
                 _state.update { it.copy(messages = log.entries, readMessages = log.read) }
             }
         }
@@ -454,7 +457,8 @@ class InboxViewModel(
         val bot = entry.bot ?: return
         val url = gateway?.gatewayUrl?.value ?: return
         viewModelScope.launch { pushLog.markRead(url, entry.id) }
-        chatLinks.openBot(bot, entry.label, entry.session)
+        // A call's session isn't a chat of that bot's to open.
+        chatLinks.openBot(bot, entry.label, entry.session.takeIf { entry.type == PushMessage.BOT_MESSAGE })
     }
 
     override fun reply(run: InboxRun) {
@@ -629,6 +633,10 @@ class InboxViewModel(
 
     override fun markAllRead() {
         val url = gateway?.gatewayUrl?.value ?: return
+        if (_state.value.tab == InboxTab.Messages) {
+            viewModelScope.launch { pushLog.markAllRead(url) }
+            return
+        }
         val also = older
         viewModelScope.launch { store.markAllRead(url, also) }
     }

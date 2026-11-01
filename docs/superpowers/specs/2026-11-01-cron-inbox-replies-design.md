@@ -25,7 +25,7 @@ Three outcomes:
 - `/heartbeat` fails with "Heartbeats unavailable (no active session)" even in a saved chat after a first message.
   Cause (installed code): the TUI slash worker's shadow CLI uses `GatewaySessionStore` but never calls
   `_ensure_gateway_session()`, so `_gateway_session_open` stays false and `_automation_manager` returns `None`
-  (`hermes_cli/cli_loops_mixin.py:589-605`, `cli_init_mixin.py:452`). It is a Hermes bug, not an app bug. No upstream issue exists.
+  (`hermes_cli/cli_loops_mixin.py:589-605`, `cli_init_mixin.py:452`). It is a Hermes bug, not an app bug. Filed upstream as NousResearch/hermes-agent#147596.
 
 ## Design
 

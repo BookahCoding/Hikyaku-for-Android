@@ -2,6 +2,7 @@ package dev.hermeskotlin.ui.inbox
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -37,7 +38,7 @@ internal fun MessageLogView(
         )
         return
     }
-    LazyColumn(Modifier.fillMaxWidth()) {
+    LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 96.dp)) {
         items(entries, key = { it.id }) { entry ->
             val unread = entry.id !in read
             Column(

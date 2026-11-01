@@ -47,6 +47,7 @@ import com.composables.icons.lucide.Send
 import dev.hermeskotlin.core.chat.ChatMessage
 import dev.hermeskotlin.core.chat.DeliveryOutcome
 import dev.hermeskotlin.core.chat.ToolActivity
+import dev.hermeskotlin.core.inbox.keepLineBreaks
 import dev.hermeskotlin.core.chat.TranscriptEvent
 import dev.hermeskotlin.core.chat.hasMore
 import dev.hermeskotlin.core.chat.messageTarget
@@ -351,7 +352,7 @@ private fun RoutineCard(event: TranscriptEvent.Routine) {
             )
         }
         val shown = if (open) event.body else event.preview()
-        if (shown.isNotBlank()) Box(Modifier.padding(start = 23.dp)) { MarkdownText(shown) }
+        if (shown.isNotBlank()) Box(Modifier.padding(start = 23.dp)) { MarkdownText(remember(shown) { keepLineBreaks(shown) }) }
         if (event.hasMore) {
             Text(
                 if (open) "Show less" else "Show all",

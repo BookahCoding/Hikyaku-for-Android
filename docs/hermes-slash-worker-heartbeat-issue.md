@@ -1,4 +1,4 @@
-# Draft upstream issue — NousResearch/hermes-agent (not filed)
+# Upstream issue — NousResearch/hermes-agent (filed as https://github.com/NousResearch/hermes-agent/issues/147596)
 
 **Title:** `/heartbeat` and `/loop` report "no active session" through the TUI slash worker (v0.22.5)
 
