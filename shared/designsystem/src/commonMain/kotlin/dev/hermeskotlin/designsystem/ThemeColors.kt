@@ -184,3 +184,6 @@ internal fun darkColors(accentColors: ThemeVariant, n: Neutrals = accentColors.n
     successSoft to n.success.copy(alpha = 0.13f),
     warningSoft to n.warning.copy(alpha = 0.13f),
 )
+
+/** The neutrals this variant is drawn with: its own, or the shared graphite or off-white set when it brings none. */
+fun ThemeVariant.neutralsFor(dark: Boolean): Neutrals = neutrals ?: if (dark) Neutrals.Dark else Neutrals.Light

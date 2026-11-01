@@ -351,7 +351,7 @@ internal fun SettingsView(
                 AccountCard(gatewayName, gatewayUrl, info.userLabel, onCheckConnection)
 
                 Section("Appearance") {
-                    Field("Theme") {
+                    Field("Mode") {
                         SegmentedControl(
                             options = ThemeMode.entries,
                             selected = settings.colorMode,
@@ -367,8 +367,8 @@ internal fun SettingsView(
                         )
                     }
                     Divider()
-                    Field("Accent", detail = "Buttons, links and your own messages.") {
-                        AccentPicker(
+                    Field("Theme", detail = "Colours for buttons, links, your own messages and the backgrounds.") {
+                        ThemePicker(
                             selected = AppTheme.named(settings.theme),
                             onSelect = { palette -> onUpdate { it.copy(theme = palette.name) } },
                         )
@@ -930,38 +930,6 @@ internal fun IconTile(icon: ImageVector) {
         contentAlignment = Alignment.Center,
     ) {
         UnstyledIcon(icon, contentDescription = null, tint = Theme[colors][textSecondary], modifier = Modifier.size(15.dp))
-    }
-}
-
-/**
- * One 30dp swatch per theme, drawn in the accent the current light or dark scheme would use, the
- * picked one ringed in its own colour. Each is a 48dp touch target; on a narrow phone or with a large display
- * size the row wraps.
- */
-@Composable
-private fun AccentPicker(selected: AppTheme, onSelect: (AppTheme) -> Unit) {
-    val dark = Theme[colors][background].luminance() < 0.5f
-    FlowRow(Modifier.selectableGroup()) {
-        AppTheme.all.forEach { palette ->
-            val isSelected = palette == selected
-            val color = if (dark) palette.dark.accent else palette.light.accent
-            Box(
-                Modifier
-                    .size(MinTouchTarget)
-                    .clip(CircleShape)
-                    .selectable(selected = isSelected, role = Role.RadioButton, onClick = { onSelect(palette) })
-                    .semantics { contentDescription = palette.name },
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    Modifier
-                        .size(38.dp)
-                        .border(2.dp, if (isSelected) color else Color.Transparent, CircleShape)
-                        .padding(4.dp)
-                        .background(color, CircleShape),
-                )
-            }
-        }
     }
 }
 
