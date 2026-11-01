@@ -113,7 +113,9 @@ fun ModelCatalog.pickerSections(
     val needle = query.trim()
     val slug = (scope as? PickerScope.Provider)?.slug
     val scopedToLocal = scope == PickerScope.Local
-    val models = pickerModels(slug, filter = { model -> !scopedToLocal || providers.any { p -> p.slug == model.provider && p.keyless } })
+    // The local rows are tagged with their endpoint, in the Local chip, its search and the All section alike.
+    val localRows = providers.filter { it.keyless }.flatMap { p -> pickerModels(p.slug, tagProvider = true) }
+    val models = if (scopedToLocal) localRows else pickerModels(slug)
     val sections = when {
         needle.isNotEmpty() -> search(needle, models, acrossProviders = slug == null && !scopedToLocal)
         scope == PickerScope.Yours -> {
@@ -139,13 +141,9 @@ fun ModelCatalog.pickerSections(
                 pickerModels(filter = { model -> model.isFree && providers.none { p -> p.slug == model.provider && p.keyless } }),
             )
         }
-        scope == PickerScope.Local -> listOf(
-            PickerSection(
-                null,
-                providers.filter { it.keyless }.flatMap { p -> pickerModels(p.slug, tagProvider = true) },
-            ),
-        )
-        scope == PickerScope.Free -> listOf(PickerSection(null, pickerModels(filter = { model -> model.isFree })))
+        scope == PickerScope.Local -> listOf(PickerSection(null, localRows))
+        // Free means the cloud providers' free models, as in All; a free-priced local model is Local.
+        scope == PickerScope.Free -> listOf(PickerSection(null, pickerModels(filter = { model -> model.isFree && providers.none { p -> p.slug == model.provider && p.keyless } })))
         else -> listOf(PickerSection(null, models, provider = slug))
     }
     return sections.filter { it.models.isNotEmpty() }

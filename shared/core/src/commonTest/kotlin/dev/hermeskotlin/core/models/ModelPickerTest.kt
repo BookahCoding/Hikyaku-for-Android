@@ -225,8 +225,8 @@ class ModelPickerTest {
             sections[1].models.flatMap { row -> row.variants.map { it.id } },
             withLocal.pickerSections("", PickerScope.Local).single().models.flatMap { row -> row.variants.map { it.id } },
         )
-        // The Free chip is a plain filter over every model, so the free-priced local one appears there too.
-        assertEquals(listOf("qwen-local"), withLocal.pickerSections("", PickerScope.Free).single().models.flatMap { row -> row.variants.map { it.id } })
+        // The Free chip is cloud providers' free models only, as in All; the free-priced local one is Local.
+        assertTrue(withLocal.pickerSections("", PickerScope.Free).isEmpty())
     }
 
     @Test
@@ -238,9 +238,15 @@ class ModelPickerTest {
     }
 
     @Test
-    fun aSearchInAllStillFindsLocalModelsButTheyAreTagged() {
+    fun aSearchInAllStillFindsLocalModels() {
         val sections = withLocal.pickerSections("llama", PickerScope.All)
         assertEquals(listOf("Llama3"), sections.single().models.map { it.name })
+    }
+
+    @Test
+    fun aSearchInTheLocalScopeKeepsTheProviderTags() {
+        val rows = withLocal.pickerSections("l", PickerScope.Local).single().models
+        assertEquals(setOf("ollama", "custom"), rows.map { it.provider }.toSet())
     }
 
     private fun provider(slug: String, name: String, vararg ids: String) = ModelProvider(slug, name, ids.map { ModelOption(id = it, provider = slug) })

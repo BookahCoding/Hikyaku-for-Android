@@ -49,6 +49,7 @@ import com.composeunstyled.Text
 import com.composeunstyled.UnstyledIcon
 import com.composeunstyled.theme.Theme
 import dev.hermeskotlin.core.chat.ChatState
+import dev.hermeskotlin.core.models.LOCAL_SECTION
 import dev.hermeskotlin.core.models.ModelCatalog
 import dev.hermeskotlin.core.models.ModelOption
 import dev.hermeskotlin.core.models.PickerModel
@@ -56,7 +57,6 @@ import dev.hermeskotlin.core.models.PickerScope
 import dev.hermeskotlin.core.models.ReasoningEffort
 import dev.hermeskotlin.core.models.displayModelName
 import dev.hermeskotlin.core.models.displayProviderName
-import dev.hermeskotlin.core.models.LOCAL_SECTION
 import dev.hermeskotlin.core.models.isFree
 import dev.hermeskotlin.core.models.offersAny
 import dev.hermeskotlin.core.models.pickerModels
@@ -367,9 +367,9 @@ private fun ModelList(
                     row = row,
                     selection = selection,
                     starred = row.isStarred(starred),
-                    // Which provider a model comes from matters once there's more than one, unless its section says
-                    // or the row carries it (the shared local section).
-                    providerNames = providerNames.takeIf { usable.providers.size > 1 && section.provider == null && row.provider == null },
+                    // Which provider a model comes from matters once there's more than one, unless its section says.
+                    // A row that carries its provider (the shared local section) always names it.
+                    providerNames = providerNames.takeIf { usable.providers.size > 1 && (section.provider == null || row.provider != null) },
                     // Two rows with the same name need their ids to tell them apart.
                     showId = row.name in repeatedNames,
                     onClick = { onPick(pick) },
