@@ -35,13 +35,14 @@ import dev.hermeskotlin.designsystem.colors
 import dev.hermeskotlin.designsystem.neutralsFor
 import dev.hermeskotlin.designsystem.text
 import dev.hermeskotlin.designsystem.typography
+import dev.hermeskotlin.designsystem.variant
 
 internal class ThemeSwatch(val background: Color, val surface: Color, val accent: Color, val text: Color)
 
 /** The colours of [palette]'s preview card in the scheme currently in force. */
-internal fun themeSwatch(palette: AppTheme, dark: Boolean): ThemeSwatch {
-    val colors = if (dark) palette.dark else palette.light
-    val n = colors.neutralsFor(dark)
+internal fun themeSwatch(palette: AppTheme, dark: Boolean, pureBlack: Boolean = false): ThemeSwatch {
+    val colors = palette.variant(dark, pureBlack)
+    val n = colors.neutralsFor(dark, pureBlack)
     return ThemeSwatch(background = n.bg, surface = n.surface2, accent = colors.accent, text = n.text)
 }
 
@@ -55,7 +56,7 @@ internal fun themeLabel(palette: AppTheme, selected: Boolean): String =
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun ThemePicker(selected: AppTheme, onSelect: (AppTheme) -> Unit) {
+internal fun ThemePicker(selected: AppTheme, pureBlack: Boolean, onSelect: (AppTheme) -> Unit) {
     val dark = Theme[colors][background].luminance() < 0.5f
     FlowRow(
         Modifier.selectableGroup(),
@@ -64,7 +65,7 @@ internal fun ThemePicker(selected: AppTheme, onSelect: (AppTheme) -> Unit) {
     ) {
         AppTheme.all.forEach { palette ->
             val isSelected = palette == selected
-            val swatch = themeSwatch(palette, dark)
+            val swatch = themeSwatch(palette, dark, pureBlack)
             Column(
                 Modifier
                     .width(104.dp)

@@ -185,5 +185,13 @@ internal fun darkColors(accentColors: ThemeVariant, n: Neutrals = accentColors.n
     warningSoft to n.warning.copy(alpha = 0.13f),
 )
 
-/** The neutrals this variant is drawn with: its own, or the shared graphite or off-white set when it brings none. */
-fun ThemeVariant.neutralsFor(dark: Boolean): Neutrals = neutrals ?: if (dark) Neutrals.Dark else Neutrals.Light
+/**
+ * The neutrals this variant is drawn with: its own, or the shared set of the scheme when it brings none
+ * (off-white in light, graphite in dark, black when [pureBlack] is on in dark).
+ */
+fun ThemeVariant.neutralsFor(dark: Boolean, pureBlack: Boolean = false): Neutrals =
+    neutrals ?: if (!dark) Neutrals.Light else if (pureBlack) Neutrals.Black else Neutrals.Dark
+
+/** The variant of [this] in force: light, dark, or the pure-black one when [pureBlack] is on in dark. */
+fun AppTheme.variant(dark: Boolean, pureBlack: Boolean = false): ThemeVariant =
+    if (!dark) light else if (pureBlack) black else this.dark

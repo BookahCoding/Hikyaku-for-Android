@@ -39,4 +39,14 @@ class ThemePickerTest {
         val v = ThemeVariant(Color.Red, Color.White, Color.Red, Color.Red)
         assertNotEquals(v.neutralsFor(dark = false).bg, v.neutralsFor(dark = true).bg)
     }
+
+    @Test
+    fun pureBlackShowsTheBlackGroundOnlyInDark() {
+        for (p in AppTheme.all) {
+            assertEquals(Color.Black, themeSwatch(p, dark = true, pureBlack = true).background, p.name)
+            assertEquals(p.dark.neutralsFor(true).bg, themeSwatch(p, dark = true, pureBlack = false).background, p.name)
+            assertEquals(themeSwatch(p, dark = false).background, themeSwatch(p, dark = false, pureBlack = true).background, p.name)
+            assertEquals(p.black.accent, themeSwatch(p, dark = true, pureBlack = true).accent, p.name)
+        }
+    }
 }
