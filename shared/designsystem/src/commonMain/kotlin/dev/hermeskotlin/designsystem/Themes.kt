@@ -21,7 +21,7 @@ internal object Themes {
         return Neutrals(
             bg = b, surface = s, surface2 = k(surface2), surface3 = k(surface3), well = k(well), thumb = s, elevated = s,
             line = t.copy(alpha = 0.12f), lineStrong = t.copy(alpha = 0.20f),
-            text = t, text2 = k(text2), text4 = k(text4), text5 = lerp(k(text4), b, 0.35f),
+            text = t, text2 = k(text2), text4 = k(text4), text5 = lerp(k(text4), b, 0.2f),
             inverse = t, onInverse = s, danger = k(danger), success = k(success), warning = k(warning),
         )
     }
@@ -35,7 +35,7 @@ internal object Themes {
             bg = b, surface = k(surface), surface2 = k(surface2), surface3 = k(surface3), well = k(well),
             thumb = lerp(k(surface3), t, 0.10f), elevated = k(elevated),
             line = t.copy(alpha = 0.08f), lineStrong = t.copy(alpha = 0.14f),
-            text = t, text2 = k(text2), text4 = k(text4), text5 = lerp(k(text4), b, 0.35f),
+            text = t, text2 = k(text2), text4 = k(text4), text5 = lerp(k(text4), b, 0.3f),
             inverse = t, onInverse = b, danger = k(danger), success = k(success), warning = k(warning),
         )
     }
@@ -85,7 +85,7 @@ internal object Themes {
         "Red Fuji",
         light(0xF7E9E1, 0xFDF3EC, 0xF1E0D6, 0xE8D3C6, 0xF3E4DA, text = 0x2A1F1D, text2 = 0x3D2E2B, text4 = 0x6B5550, danger = 0x7A1F4A, success = 0x2F5E3C, warning = 0x7A4F00),
         dark(0x1C1614, 0x251D1A, 0x2E2420, 0x3A2D28, 0x181210, 0x271F1C, text = 0xF2E4DA, text2 = 0xDCCDC2, text4 = 0xB5A398, danger = 0xF2799B, success = 0x8CC79A, warning = 0xE6B85C),
-        lightAccent = 0xA33524, darkAccent = 0xE8826A,
+        lightAccent = 0xB3261E, darkAccent = 0xF4704A,
     )
 
     /** "Thirty-six Views": celadon and pine night, from the green of Hokusai's landscapes. */

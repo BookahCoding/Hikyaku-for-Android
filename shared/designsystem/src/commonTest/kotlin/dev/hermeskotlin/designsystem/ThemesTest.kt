@@ -133,4 +133,25 @@ class ThemesTest {
         assertTrue(Themes.Shibuya.dark.hasSecondary && Themes.Akihabara.dark.hasSecondary, "the neon themes carry a second colour")
         assertTrue(Themes.ThirtySixViews.dark.hasSecondary, "Thirty-six Views carries its ochre")
     }
+
+    @Test
+    fun mutedTextStaysLegibleOnTheMainGrounds() {
+        for (p in themes) for ((scheme, c) in schemes(p)) {
+            for (g in listOf(background, surface, surface2).map { c.getValue(it) }) {
+                assertTrue(contrast(c.getValue(textMuted), g) >= 3f, "${p.name} $scheme muted on $g")
+            }
+        }
+    }
+
+    @Test
+    fun noTwoThemesShareAnAccent() {
+        val all = AppTheme.all
+        for (i in all.indices) for (j in i + 1 until all.size) {
+            val a = all[i]; val b = all[j]
+            for ((scheme, pair) in listOf("light" to (a.light to b.light), "dark" to (a.dark to b.dark), "black" to (a.black to b.black))) {
+                val d = difference(pair.first.accent, pair.second.accent)
+                assertTrue(d >= 15.0, "${a.name} vs ${b.name} $scheme accent ΔE $d")
+            }
+        }
+    }
 }

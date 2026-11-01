@@ -21,7 +21,7 @@ class WatchAccentsTest {
         val expected = listOf(
             "Ukiyo-e" to 0xFFE5927E,
             "Great Wave" to 0xFF7FB0E8,
-            "Red Fuji" to 0xFFE8826A,
+            "Red Fuji" to 0xFFF4704A,
             "Thirty-six Views" to 0xFF6FBF8F,
             "Shibuya Night" to 0xFFFF7CC0,
             "Akihabara" to 0xFF2BE37A,
