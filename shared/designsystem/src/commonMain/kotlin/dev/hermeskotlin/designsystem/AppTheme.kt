@@ -34,7 +34,7 @@ val ThemeVariant.hasSecondary: Boolean get() = secondary != accent
  * only needs a light and a dark accent. Light accents carry white text and dark accents near-black text, each
  * at 4.5:1 or more, and every accent's text reads at 4.5:1 on its background (AppThemeTest).
  */
-class AppTheme private constructor(
+class AppTheme internal constructor(
     val name: String,
     val light: ThemeVariant,
     val dark: ThemeVariant,
@@ -103,7 +103,7 @@ class AppTheme private constructor(
             )
         }
 
-        val all: List<AppTheme> = listOf(Blue, Violet, Green, Orange, Pink, Teal, Ukiyoe)
+        val all: List<AppTheme> by lazy { listOf(Blue, Violet, Green, Orange, Pink, Teal, Ukiyoe, Themes.GreatWave, Themes.RedFuji, Themes.ThirtySixViews) }
 
         /** The palette called [name], or [Blue] for a name this version doesn't know. */
         fun named(name: String?): AppTheme = all.firstOrNull { it.name == name } ?: Blue
