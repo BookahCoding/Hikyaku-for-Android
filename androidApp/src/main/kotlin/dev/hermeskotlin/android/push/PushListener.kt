@@ -100,11 +100,6 @@ class PushListener(
         if (event.time > 0) store.sinceSeconds = event.time
         if (message == null || !guard.accept(message)) return
         store.seen = guard.snapshot()
-        gatewayUrl?.let { url ->
-            PushLogEntry.from(message)
-                ?.takeIf { entry -> entry.bot.let { name -> name == null || profiles.allows(url, name) } }
-                ?.let { entry -> pushLog.record(url, entry) }
-        }
         when (message.type) {
             PushMessage.BOT_MESSAGE -> showBotMessage(message, gatewayUrl)
             PushMessage.PING -> notifications.postPushTest()
@@ -114,6 +109,18 @@ class PushListener(
             // backlog read after a restart) is past its time and doesn't ring.
             PushMessage.PHONE_CALL -> phoneTools.ring(message)
             PushMessage.CRON_RUN -> showCronRun(message, gatewayUrl ?: return)
+        }
+        // Last, so a slow or failing write can't hold back or lose the notification or the ring.
+        gatewayUrl?.let { url ->
+            try {
+                PushLogEntry.from(message)
+                    ?.takeIf { entry -> entry.bot.let { name -> name == null || profiles.allows(url, name) } }
+                    ?.let { entry -> pushLog.record(url, entry) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "push log write failed: ${e::class.simpleName}")
+            }
         }
     }
 

@@ -33,6 +33,7 @@ data class PushLogEntry(
         /** The entry for [message], or null for a type that isn't logged or one missing what names it. */
         fun from(message: PushMessage): PushLogEntry? {
             if (message.type != PushMessage.BOT_MESSAGE && message.type != PushMessage.PHONE_CALL) return null
+            if (message.session == PushRules.PROFILE_TEST_SESSION) return null
             val bot = message.bot?.takeIf { BOT_NAME.matches(it) }
             val session = message.session?.takeIf { SESSION_ID.matches(it) }
             if (message.type == PushMessage.BOT_MESSAGE && (bot == null || session == null)) return null
@@ -70,6 +71,9 @@ class PushLogStore(
     private var gateway: String? = null
     private val _state = MutableStateFlow(Snapshot())
     val state: StateFlow<Snapshot> = _state.asStateFlow()
+
+    /** The gateway [state] belongs to, null before [bind]. */
+    val bound: String? get() = gateway
 
     suspend fun bind(gatewayUrl: String) = lock.withLock {
         if (gateway == gatewayUrl) return@withLock

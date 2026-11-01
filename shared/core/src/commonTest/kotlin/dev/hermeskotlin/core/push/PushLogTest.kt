@@ -41,6 +41,32 @@ class PushLogTest {
     }
 
     @Test
+    fun theProfilesTestPushIsNotLogged() {
+        assertNull(PushLogEntry.from(message(session = PushRules.PROFILE_TEST_SESSION)))
+    }
+
+    @Test
+    fun aCallKeepsItsEntryButDropsOddBotAndSession() {
+        val e = assertNotNull(PushLogEntry.from(message(type = PushMessage.PHONE_CALL, bot = "bad name!", session = "has space")))
+        assertNull(e.bot)
+        assertNull(e.session)
+        assertEquals("hello", e.text)
+    }
+
+    @Test
+    fun aBotMessageWithAnEmptySessionIsNotLogged() {
+        assertNull(PushLogEntry.from(message(session = "")))
+    }
+
+    @Test
+    fun boundNamesTheGatewayShown() = runTest {
+        val log = PushLogStore(InMemoryKeyValueStore())
+        assertNull(log.bound)
+        log.bind(url)
+        assertEquals(url, log.bound)
+    }
+
+    @Test
     fun aVeryLongTextIsCut() {
         val e = assertNotNull(PushLogEntry.from(message(text = "x".repeat(10_000))))
         assertEquals(PushLogStore.MAX_TEXT, e.text.length)
