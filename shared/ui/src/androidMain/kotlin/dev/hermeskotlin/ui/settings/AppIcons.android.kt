@@ -44,7 +44,8 @@ private class AndroidAppIcons(
     private val packages = context.packageManager
 
     // The launcher entry Android opens Herald from is the enabled alias: one lookup instead of one per icon.
-    override val current: AppIcon = shownIcon(context)
+    // Read each time: a pending theme icon switched on when the app was left changes it behind this object.
+    override val current: AppIcon get() = shownIcon(context)
 
     override suspend fun picture(icon: AppIcon, sizePx: Int): ImageBitmap? = withContext(Dispatchers.Default) {
         runCatching {
@@ -56,12 +57,12 @@ private class AndroidAppIcons(
         }.getOrNull()
     }
 
-    override fun applyWhenLeaving(icon: AppIcon) = AppIconPending.pending.set(icon)
+    override fun applyWhenLeaving(icon: AppIcon) = pendingIcon(context).set(icon)
 
     override fun apply(icon: AppIcon) {
         // An icon chosen by hand here must not be overwritten by a theme pick still waiting for the app to be left.
-        AppIconPending.pending.clear()
-        if (icon == current) return
+        pendingIcon(context).clear()
+        if (icon == shownIcon(context)) return
         switchTo(context, icon)
         // Android closes the task the old icon opened once that alias is off, and Herald's activity is singleTask,
         // so it would reopen in that same task. Close it first, then open Herald in a new task from the new icon,
@@ -104,9 +105,13 @@ private fun switchTo(context: Context, icon: AppIcon) {
     }
 }
 
-/** What a theme pick asked for, process-wide so it outlives the Settings screen and is found when the app is left. */
-internal object AppIconPending {
-    val pending = PendingIcon()
+/** What a theme pick asked for, kept in preferences so it outlives the Settings screen and the process. */
+private fun pendingIcon(context: Context): PendingIcon {
+    val prefs = context.applicationContext.getSharedPreferences("app_icon", Context.MODE_PRIVATE)
+    return PendingIcon(object : PendingIconStore {
+        override fun load() = prefs.getString("pending_icon", null)
+        override fun save(name: String?) = prefs.edit().apply { if (name == null) remove("pending_icon") else putString("pending_icon", name) }.apply()
+    })
 }
 
 /**
@@ -114,7 +119,7 @@ internal object AppIconPending {
  * restart: called when the app goes to the background.
  */
 fun flushPendingIcon(context: Context) {
-    val icon = AppIconPending.pending.take(shownIcon(context)) ?: return
+    val icon = pendingIcon(context).take(shownIcon(context)) ?: return
     switchTo(context, icon)
 }
 

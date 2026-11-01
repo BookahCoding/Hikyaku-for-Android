@@ -5,8 +5,10 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
+import android.app.ActivityManager
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.os.SystemClock
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -29,6 +31,7 @@ import dev.hermeskotlin.android.phone.PhoneConfirmations
 import dev.hermeskotlin.ui.settings.AppIconRestart
 import dev.hermeskotlin.ui.settings.PhoneQuestion
 import dev.hermeskotlin.ui.settings.ensureALauncherIcon
+import dev.hermeskotlin.ui.settings.shouldFlushPendingIcon
 import dev.hermeskotlin.ui.settings.flushPendingIcon
 import dev.hermeskotlin.core.chat.AppLink
 import dev.hermeskotlin.core.chat.ChatHost
@@ -256,8 +259,25 @@ class HeraldActivity : FragmentActivity() {
         super.onStop()
         // A rotation isn't leaving the app.
         if (!isChangingConfigurations) appLock.onBackground(SystemClock.elapsedRealtime())
-        // The icon a theme pick queued goes on now that the app is out of sight (a rotation isn't leaving).
-        if (!isChangingConfigurations) runCatching { flushPendingIcon(this) }
+        // The icon a theme pick queued goes on only when the app really left: switching it closes the task, which would
+        // lose the result of a picker or camera in front of Herald. Anything unknown means not now; it stays queued.
+        runCatching {
+            val top = topActivityPackage()
+            val interactive = getSystemService(PowerManager::class.java).isInteractive
+            if (shouldFlushPendingIcon(isChangingConfigurations, top, packageName, interactive)) flushPendingIcon(this)
+        }
+    }
+
+    /** The package of the activity in front in this task, or null if unknown; an app only ever sees its own tasks. */
+    @Suppress("DEPRECATION")
+    private fun topActivityPackage(): String? {
+        val am = getSystemService(ActivityManager::class.java)
+        val top = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            am.appTasks.firstOrNull { it.taskInfo?.taskId == taskId }?.taskInfo?.topActivity
+        } else {
+            am.getRunningTasks(10).firstOrNull { it.id == taskId }?.topActivity
+        }
+        return top?.packageName
     }
 
     /** The app theme can differ from the system's, so the window and bar icons follow the app. */

@@ -43,20 +43,46 @@ interface AppIcons {
     fun applyWhenLeaving(icon: AppIcon)
 }
 
-/** The icon a theme pick asked for, held until the app is left; the last pick wins. */
-class PendingIcon {
-    private var icon: AppIcon? = null
+/** Where a [PendingIcon] keeps its icon's name, so a pick survives the process being killed. */
+interface PendingIconStore {
+    fun load(): String?
+    fun save(name: String?)
+}
 
-    fun set(icon: AppIcon?) {
-        this.icon = icon
+/**
+ * The icon a theme pick asked for, held until the app is left; the last pick wins. Kept in [store] so it survives the
+ * process dying while something covers the app (a picker, the camera).
+ */
+class PendingIcon(private val store: PendingIconStore = object : PendingIconStore {
+    private var name: String? = null
+    override fun load() = name
+    override fun save(name: String?) {
+        this.name = name
     }
+}) {
+    fun set(icon: AppIcon?) = store.save(icon?.name)
 
     /** Forgets what is pending, for an icon chosen by hand that must not be overwritten. */
     fun clear() = set(null)
 
     /** The icon to switch to, or null when nothing is pending or it is the one already shown; forgets it either way. */
-    fun take(current: AppIcon): AppIcon? = icon?.takeIf { it != current }.also { icon = null }
+    fun take(current: AppIcon): AppIcon? {
+        val icon = store.load()?.let { name -> AppIcon.entries.firstOrNull { it.name == name } } // an unknown name is ignored
+        store.save(null)
+        return icon?.takeIf { it != current }
+    }
 }
+
+/** Whether picking [picked] queues its icon: only a change of theme, so re-tapping the chosen one keeps a hand-picked icon. */
+fun shouldQueueThemeIcon(picked: AppTheme, selected: AppTheme): Boolean = picked != selected
+
+/**
+ * Whether the pending icon may be switched on now. Only when the app really went out of sight: not a rotation, Herald's
+ * own activity still the top of its task (not a picker, camera or browser in front, which the switch would close), and
+ * the screen on (a locked screen isn't leaving; the next real leave applies it). An unknown top never flushes.
+ */
+fun shouldFlushPendingIcon(isChangingConfigurations: Boolean, topPackage: String?, ownPackage: String, interactive: Boolean): Boolean =
+    !isChangingConfigurations && topPackage == ownPackage && interactive
 
 /** Reads the icon again after [AppIcons.apply], so [AppIcons.current] follows. */
 @Composable

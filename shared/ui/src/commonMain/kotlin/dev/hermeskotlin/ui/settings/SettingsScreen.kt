@@ -373,7 +373,7 @@ internal fun SettingsView(
                                 pureBlack = settings.pureBlack,
                                 onSelect = { palette ->
                                     onUpdate { it.copy(theme = palette.name) }
-                                    onThemeIcon(palette.icon())
+                                    if (shouldQueueThemeIcon(palette, AppTheme.named(settings.theme))) onThemeIcon(palette.icon())
                                 },
                             )
                             Text("The icon changes when you leave the app.", style = Theme[typography][bodySmall], color = Theme[colors][textTertiary])
