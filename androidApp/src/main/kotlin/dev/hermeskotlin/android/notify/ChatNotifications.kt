@@ -487,7 +487,7 @@ class ChatNotifications(
                 .putExtra(NotificationActionReceiver.EXTRA_REQUEST_ID, call.id)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        return context.packageManager.getLaunchIntentForPackage(context.packageName)!!
+        return (context.packageManager.getLaunchIntentForPackage(context.packageName) ?: Intent(context, HeraldActivity::class.java))
             .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
             .putExtra(EXTRA_ANSWERED_CALL, call.id)
             .apply {

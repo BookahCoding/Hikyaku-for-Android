@@ -366,7 +366,7 @@ internal fun SettingsView(
                         )
                     }
                     Divider()
-                    Field("Theme", detail = "Colours for buttons, links, your own messages and the backgrounds.") {
+                    Field("Theme", detail = "Colors for buttons, links, your own messages and the backgrounds.") {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             ThemePicker(
                                 selected = AppTheme.named(settings.theme),

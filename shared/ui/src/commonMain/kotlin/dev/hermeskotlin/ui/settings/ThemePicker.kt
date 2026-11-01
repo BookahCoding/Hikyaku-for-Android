@@ -98,7 +98,7 @@ internal fun ThemePicker(selected: AppTheme, pureBlack: Boolean, onSelect: (AppT
                     style = Theme[typography][bodySmall],
                     color = Theme[colors][text],
                     modifier = Modifier.clearAndSetSemantics { },
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }

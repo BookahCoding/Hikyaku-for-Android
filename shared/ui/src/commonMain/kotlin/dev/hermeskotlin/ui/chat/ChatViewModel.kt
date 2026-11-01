@@ -944,7 +944,7 @@ class ChatViewModel(
         }
     }
 
-    /** `/skin [light|dark|black|system]`: this app's theme; bare, it steps to the next one. */
+    /** `/skin [light|dark|black|system]`: this app's color mode; bare, it steps to the next one. */
     private fun skin(chat: ChatSession, arg: String) {
         val current = settings.settings.value ?: AppSettings()
         val next = when (arg.lowercase()) {
@@ -957,7 +957,7 @@ class ChatViewModel(
             "dark" -> current.copy(colorMode = ThemeMode.Dark, pureBlack = false)
             "black", "oled", "amoled" -> current.copy(colorMode = ThemeMode.Dark, pureBlack = true)
             "system", "auto", "default" -> current.copy(colorMode = ThemeMode.System)
-            else -> return chat.showCommandOutput("/skin", "Themes here: light, dark, black or system.", failed = true)
+            else -> return chat.showCommandOutput("/skin", "Modes here: light, dark, black or system.", failed = true)
         }
         settings.update { next }
         val name = when (next.colorMode) {
@@ -965,7 +965,7 @@ class ChatViewModel(
             ThemeMode.Light -> "light"
             ThemeMode.Dark -> if (next.pureBlack) "black" else "dark"
         }
-        chat.showCommandOutput("/skin", "Theme: $name.")
+        chat.showCommandOutput("/skin", "Mode: $name.")
     }
 
     /** `/pet [name|off]`: bare opens the gallery; a name adopts that pet; `off` puts it away. */
