@@ -134,6 +134,7 @@ internal object InboxSamples {
 
 internal object PreviewInboxActions : InboxActions {
     override fun open(run: InboxRun) {}
+    override fun reply(run: InboxRun) {}
     override fun closeRun() {}
     override fun markAllRead() {}
     override fun setFilter(filter: InboxFilter) {}

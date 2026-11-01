@@ -176,6 +176,15 @@ class InboxViewModelTest {
     }
 
     @Test
+    fun replyingToARunLeavesADraftForItsBot() = runTest(dispatcher) {
+        val vm = viewModel(PluginGateway(CoroutineScope(dispatcher)) { "" })
+        vm.reply(InboxRun(bot = "shisha", job = "j", run = "2026-11-01_17-16-21", label = "mail-watch", text = "Hello"))
+        val link = chatLinks.pending.value
+        assertEquals("shisha", link?.bot)
+        assertEquals(true, link?.draft?.text?.startsWith("Re: "))
+    }
+
+    @Test
     fun anotherGatewayStartsCleanAndTheLastOnesAnswerIsDropped() = runTest(dispatcher) {
         val held = CompletableDeferred<Unit>()
         var lists = 0

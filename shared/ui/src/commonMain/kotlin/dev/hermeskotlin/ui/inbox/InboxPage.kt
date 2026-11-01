@@ -196,7 +196,7 @@ internal fun InboxPage(
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             when {
-                state.open != null -> RunView(state.open, state.nameOf(state.open), state.openLoading, state.openNote, onBack = viewModel::closeRun)
+                state.open != null -> RunView(state.open, state.nameOf(state.open), state.openLoading, state.openNote, onBack = viewModel::closeRun, onReply = { viewModel.reply(state.open) })
                 state.choosing -> FollowView(state, viewModel)
                 state.grouping -> GroupsView(state, viewModel)
                 else -> InboxView(state, viewModel, onBack = onBack, onOpenSettings = onOpenSettings, foldersList = foldersList, runsList = runsList)
@@ -554,7 +554,7 @@ private fun MoreRow(loading: Boolean, error: String?, onClick: () -> Unit) {
 
 /** One run in full, as Markdown. */
 @Composable
-internal fun RunView(run: InboxRun, name: String, loading: Boolean, note: RunNote?, onBack: () -> Unit) {
+internal fun RunView(run: InboxRun, name: String, loading: Boolean, note: RunNote?, onBack: () -> Unit, onReply: () -> Unit) {
     SubpageHeader(name, onBack = onBack, subtitle = (if (run.failed) "Failed · " else "") + messageTime(run.at.toDouble(), uses24HourClock()))
     Column(
         Modifier
@@ -575,6 +575,7 @@ internal fun RunView(run: InboxRun, name: String, loading: Boolean, note: RunNot
             )
         }
         if (loading && run.text.isEmpty()) ListSkeleton() else MarkdownText(remember(run.text) { keepLineBreaks(run.text) })
+        Button(if (run.failed) "Ask about this" else "Reply", onClick = onReply, variant = ButtonVariant.Ghost, size = ButtonSize.Small, enabled = !loading)
     }
 }
 

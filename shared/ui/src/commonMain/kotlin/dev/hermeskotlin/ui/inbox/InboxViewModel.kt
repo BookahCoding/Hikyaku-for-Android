@@ -9,6 +9,7 @@ import dev.hermeskotlin.core.cron.CronApi
 import dev.hermeskotlin.core.cron.CronJob
 import dev.hermeskotlin.core.gateway.SavedGateway
 import dev.hermeskotlin.core.inbox.ChipMode
+import dev.hermeskotlin.core.inbox.CronReply
 import dev.hermeskotlin.core.inbox.Follow
 import dev.hermeskotlin.core.inbox.Following
 import dev.hermeskotlin.core.inbox.InboxApi
@@ -188,6 +189,9 @@ interface InboxActions {
 
     /** Opens the chat a pushed message is from, and marks it read. */
     fun openMessage(entry: PushLogEntry)
+
+    /** Starts a reply to [run] in its bot's chat, quoting how it began. */
+    fun reply(run: InboxRun)
 
     /** The runs before the oldest one shown, from the gateway. */
     fun loadMore()
@@ -451,6 +455,10 @@ class InboxViewModel(
         val url = gateway?.gatewayUrl?.value ?: return
         viewModelScope.launch { pushLog.markRead(url, entry.id) }
         chatLinks.openBot(bot, entry.label, entry.session)
+    }
+
+    override fun reply(run: InboxRun) {
+        chatLinks.shareToBot(run.bot, CronReply.draft(run))
     }
 
     override fun openGroups() = _state.update { it.copy(grouping = true) }
