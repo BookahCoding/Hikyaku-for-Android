@@ -158,7 +158,7 @@ fun AssistantPanel(
     onClose: () -> Unit,
 ) {
     val settings = koinInject<SettingsStore>().settings.collectAsState().value ?: return
-    val dark = when (settings.theme) {
+    val dark = when (settings.colorMode) {
         ThemeMode.System -> isSystemInDarkTheme()
         ThemeMode.Light -> false
         ThemeMode.Dark -> true
@@ -169,7 +169,7 @@ fun AssistantPanel(
         else -> ColorScheme.Dark
     }
     val density = LocalDensity.current
-    val palette = AppTheme.named(settings.accent)
+    val palette = AppTheme.named(settings.theme)
     hermesTheme(palette)(scheme) {
         CompositionLocalProvider(
             LocalAppTheme provides palette,

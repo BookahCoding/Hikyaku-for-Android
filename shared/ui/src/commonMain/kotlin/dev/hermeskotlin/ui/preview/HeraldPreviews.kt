@@ -562,7 +562,7 @@ fun HeraldPreview(scene: PreviewScene, dark: Boolean = true, accent: String = DE
                     SessionControlSheetView(visible = true, control = PageSamples.control, busy = null, error = null, onAction = { _, _, _ -> }, onDismiss = {})
                 }
                 PreviewScene.Settings -> SettingsView(
-                    settings = AppSettings(theme = if (dark) ThemeMode.Dark else ThemeMode.Light, accent = accent, glow = glow),
+                    settings = AppSettings(colorMode = if (dark) ThemeMode.Dark else ThemeMode.Light, theme = accent, glow = glow),
                     info = GatewayInfo(userLabel = ChatSamples.USER, version = "0.9.0"),
                     gatewayUrl = "https://hermes.example.ts.net",
                     gatewayName = "homelab",
@@ -578,7 +578,7 @@ fun HeraldPreview(scene: PreviewScene, dark: Boolean = true, accent: String = DE
                 )
                 PreviewScene.ConnectionCheck -> Box(Modifier.fillMaxSize()) {
                     SettingsView(
-                        settings = AppSettings(theme = if (dark) ThemeMode.Dark else ThemeMode.Light, glow = glow),
+                        settings = AppSettings(colorMode = if (dark) ThemeMode.Dark else ThemeMode.Light, glow = glow),
                         info = GatewayInfo(userLabel = ChatSamples.USER, version = "0.9.0"),
                         gatewayUrl = "https://hermes.example.ts.net",
                         gatewayName = "homelab",

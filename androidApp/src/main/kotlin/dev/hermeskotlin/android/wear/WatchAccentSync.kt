@@ -30,7 +30,7 @@ class WatchAccentSync(private val context: Context, private val settings: Settin
     fun start() {
         scope.launch {
             // The first value is the stored one, which the watch already gets when it asks.
-            settings.settings.filterNotNull().map { it.accent }.distinctUntilChanged().drop(1).collectLatest { accent ->
+            settings.settings.filterNotNull().map { it.theme }.distinctUntilChanged().drop(1).collectLatest { accent ->
                 val watches = try {
                     // Only watches with Herald on them: other paired devices have nothing to take it.
                     Wearable.getCapabilityClient(context).getCapability(WearCapabilities.WATCH, CapabilityClient.FILTER_REACHABLE).await().nodes

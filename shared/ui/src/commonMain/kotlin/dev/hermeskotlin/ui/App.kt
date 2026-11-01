@@ -123,7 +123,7 @@ fun App(
 ) {
     // Nothing is drawn until the stored settings are read, so the first frame has the right theme.
     val settings = koinInject<SettingsStore>().settings.collectAsStateWithLifecycle().value ?: return
-    val dark = when (settings.theme) {
+    val dark = when (settings.colorMode) {
         ThemeMode.System -> isSystemInDarkTheme()
         ThemeMode.Light -> false
         ThemeMode.Dark -> true
@@ -135,7 +135,7 @@ fun App(
         else -> ColorScheme.Dark
     }
     val density = LocalDensity.current
-    val palette = AppTheme.named(settings.accent)
+    val palette = AppTheme.named(settings.theme)
     hermesTheme(palette)(scheme) {
         CompositionLocalProvider(
             LocalAppTheme provides palette,

@@ -10,11 +10,12 @@ import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 enum class ThemeMode { System, Light, Dark }
 
-/** The theme [AppSettings.accent] starts with: Desktop's blue. */
+/** The theme [AppSettings.theme] starts with: Desktop's blue. */
 const val DEFAULT_THEME = "Blue"
 
 /** How much bigger or smaller than the system font size the app draws text. */
@@ -60,14 +61,15 @@ enum class RunningSend { Steer, Queue, StopAndSend }
 /** App-side preferences, kept on the device (not on the gateway). New fields need defaults. */
 @Serializable
 data class AppSettings(
-    val theme: ThemeMode = ThemeMode.System,
+    /** Light, dark or follow the system (stored under the key "theme", which it had before themes). */
+    @SerialName("theme") val colorMode: ThemeMode = ThemeMode.System,
     /** Dark mode uses true black backgrounds (OLED). */
     val pureBlack: Boolean = false,
     /**
      * The theme's name (the design system's `AppTheme`; stored under the key "accent"). A string, not an enum, so a theme that a
      * newer version added reads as the default here instead of making the whole stored settings unreadable.
      */
-    val accent: String = DEFAULT_THEME,
+    @SerialName("accent") val theme: String = DEFAULT_THEME,
     /**
      * The colored glows: behind the top of each screen; under prompts, the app mark, Send, New chat, the main
      * buttons and live subagent cards; on the voice screen; and the assistant edge's halo. Off, all flat.

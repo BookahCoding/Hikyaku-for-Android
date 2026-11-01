@@ -354,8 +354,8 @@ internal fun SettingsView(
                     Field("Theme") {
                         SegmentedControl(
                             options = ThemeMode.entries,
-                            selected = settings.theme,
-                            onSelect = { mode -> onUpdate { it.copy(theme = mode) } },
+                            selected = settings.colorMode,
+                            onSelect = { mode -> onUpdate { it.copy(colorMode = mode) } },
                             optionLabel = { it.name },
                             optionIcon = {
                                 when (it) {
@@ -369,8 +369,8 @@ internal fun SettingsView(
                     Divider()
                     Field("Accent", detail = "Buttons, links and your own messages.") {
                         AccentPicker(
-                            selected = AppTheme.named(settings.accent),
-                            onSelect = { palette -> onUpdate { it.copy(accent = palette.name) } },
+                            selected = AppTheme.named(settings.theme),
+                            onSelect = { palette -> onUpdate { it.copy(theme = palette.name) } },
                         )
                     }
                     Divider()

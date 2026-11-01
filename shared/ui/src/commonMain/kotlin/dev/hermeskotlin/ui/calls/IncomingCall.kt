@@ -70,7 +70,7 @@ import org.koin.compose.koinInject
 @Composable
 fun IncomingCallScreen(caller: String, why: String, onAnswer: () -> Unit, onDecline: () -> Unit) {
     val settings = koinInject<SettingsStore>().settings.collectAsState().value ?: return
-    val palette = AppTheme.named(settings.accent)
+    val palette = AppTheme.named(settings.theme)
     hermesTheme(palette)(if (settings.pureBlack) PureBlack else ColorScheme.Dark) {
         CompositionLocalProvider(LocalAppTheme provides palette) {
             IncomingCallView(caller, why, onAnswer, onDecline)
@@ -132,7 +132,7 @@ private fun CallButton(name: String, icon: ImageVector, color: Color, onClick: (
 fun InCallScreen(model: PhoneCallModel) {
     val settings = koinInject<SettingsStore>().settings.collectAsState().value ?: return
     val state = model.state.collectAsState().value ?: return
-    val palette = AppTheme.named(settings.accent)
+    val palette = AppTheme.named(settings.theme)
     // The call's length, from when it was picked up.
     val since = remember { TimeSource.Monotonic.markNow() }
     val seconds by produceState(0L) {

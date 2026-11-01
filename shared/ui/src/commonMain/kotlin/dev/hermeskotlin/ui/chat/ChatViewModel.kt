@@ -948,19 +948,19 @@ class ChatViewModel(
     private fun skin(chat: ChatSession, arg: String) {
         val current = settings.settings.value ?: AppSettings()
         val next = when (arg.lowercase()) {
-            "" -> when (current.theme) {
-                ThemeMode.System -> current.copy(theme = ThemeMode.Light)
-                ThemeMode.Light -> current.copy(theme = ThemeMode.Dark)
-                ThemeMode.Dark -> current.copy(theme = ThemeMode.System)
+            "" -> when (current.colorMode) {
+                ThemeMode.System -> current.copy(colorMode = ThemeMode.Light)
+                ThemeMode.Light -> current.copy(colorMode = ThemeMode.Dark)
+                ThemeMode.Dark -> current.copy(colorMode = ThemeMode.System)
             }
-            "light" -> current.copy(theme = ThemeMode.Light)
-            "dark" -> current.copy(theme = ThemeMode.Dark, pureBlack = false)
-            "black", "oled", "amoled" -> current.copy(theme = ThemeMode.Dark, pureBlack = true)
-            "system", "auto", "default" -> current.copy(theme = ThemeMode.System)
+            "light" -> current.copy(colorMode = ThemeMode.Light)
+            "dark" -> current.copy(colorMode = ThemeMode.Dark, pureBlack = false)
+            "black", "oled", "amoled" -> current.copy(colorMode = ThemeMode.Dark, pureBlack = true)
+            "system", "auto", "default" -> current.copy(colorMode = ThemeMode.System)
             else -> return chat.showCommandOutput("/skin", "Themes here: light, dark, black or system.", failed = true)
         }
         settings.update { next }
-        val name = when (next.theme) {
+        val name = when (next.colorMode) {
             ThemeMode.System -> "matches the system"
             ThemeMode.Light -> "light"
             ThemeMode.Dark -> if (next.pureBlack) "black" else "dark"
