@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The app mark on the Orange accent (AppIcons). -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/launcher_orange" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <background android:drawable="@drawable/ic_launcher_bg_shibuya" />
+    <foreground android:drawable="@drawable/ic_launcher_fg_neon_magenta" />
     <monochrome android:drawable="@drawable/ic_launcher_foreground" />
 </adaptive-icon>

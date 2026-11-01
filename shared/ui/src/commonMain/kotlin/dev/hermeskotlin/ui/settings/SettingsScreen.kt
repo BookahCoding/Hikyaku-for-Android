@@ -316,7 +316,7 @@ internal fun SettingsView(
     onChooseWallpaper: () -> Unit = {},
     onRemoveWallpaper: () -> Unit = {},
     onOpenPhoneTools: () -> Unit = {},
-    appIcon: AppIcon = AppIcon.Blue,
+    appIcon: AppIcon = AppIcon.Ukiyoe,
     onOpenAppIcon: () -> Unit = {},
     onOpenStartInstruction: () -> Unit = {},
     /** Where the Next Prompt plugin behind Suggested replies stands on the gateway. */

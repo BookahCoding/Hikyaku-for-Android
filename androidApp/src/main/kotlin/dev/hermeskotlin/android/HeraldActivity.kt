@@ -28,6 +28,7 @@ import dev.hermeskotlin.android.notify.ChatNotifications
 import dev.hermeskotlin.android.phone.PhoneConfirmations
 import dev.hermeskotlin.ui.settings.AppIconRestart
 import dev.hermeskotlin.ui.settings.PhoneQuestion
+import dev.hermeskotlin.ui.settings.ensureALauncherIcon
 import dev.hermeskotlin.core.chat.AppLink
 import dev.hermeskotlin.core.chat.ChatHost
 import dev.hermeskotlin.core.chat.ChatLinks
@@ -87,6 +88,7 @@ class HeraldActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        ensureALauncherIcon(this)
         if (windowPrefs.contains(KEY_DARK)) applyWindowTheme(windowPrefs.getBoolean(KEY_DARK, false))
         // The stored setting is read asynchronously; this copy decides the very first frame.
         val lockOn = windowPrefs.getBoolean(KEY_APP_LOCK, false)

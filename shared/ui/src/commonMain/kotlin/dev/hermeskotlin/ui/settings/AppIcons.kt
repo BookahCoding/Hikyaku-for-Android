@@ -2,28 +2,32 @@ package dev.hermeskotlin.ui.settings
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.ImageBitmap
+import dev.hermeskotlin.designsystem.AppTheme
 
 /** The rows of the app icon picker. */
 enum class AppIconGroup(val title: String) {
-    Colors("Colors"),
+    Themes("Themes"),
     Patterns("Patterns"),
 }
 
 /**
- * The launcher icons Herald comes with. [Blue] is the brand icon every install starts with; the colors are the
- * accents', and the patterns put the outlined mark over a print.
+ * The launcher icons Herald comes with: one per theme ([Ukiyoe] is the one every install starts with), and the
+ * patterns, which put the outlined mark over a print.
  */
 enum class AppIcon(val label: String, val group: AppIconGroup) {
-    Blue("Blue", AppIconGroup.Colors),
-    Violet("Violet", AppIconGroup.Colors),
-    Green("Green", AppIconGroup.Colors),
-    Orange("Orange", AppIconGroup.Colors),
-    Pink("Pink", AppIconGroup.Colors),
-    Teal("Teal", AppIconGroup.Colors),
+    Ukiyoe("Ukiyo-e", AppIconGroup.Themes),
+    GreatWave("Great Wave", AppIconGroup.Themes),
+    RedFuji("Red Fuji", AppIconGroup.Themes),
+    ThirtySixViews("Thirty-six Views", AppIconGroup.Themes),
+    Shibuya("Shibuya Night", AppIconGroup.Themes),
+    Akihabara("Akihabara", AppIconGroup.Themes),
     Hearts("Hearts", AppIconGroup.Patterns),
     Marks("Marks", AppIconGroup.Patterns),
     Bubbles("Bubbles", AppIconGroup.Patterns),
 }
+
+/** The icon that goes with [this] theme. */
+fun AppTheme.icon(): AppIcon = AppIcon.entries.firstOrNull { it.group == AppIconGroup.Themes && it.label == name } ?: AppIcon.Ukiyoe
 
 /** Which launcher icon Herald shows, and switching it. */
 interface AppIcons {
