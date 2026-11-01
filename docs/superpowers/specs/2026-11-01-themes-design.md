@@ -42,7 +42,7 @@ contrast tests, and keeps the character.
 |---|---|---|---|---|
 | **Ukiyo-e** (unchanged) | washi `#F4EDD9` | indigo `#0E1424` | vermilion `#A63F2D` → `#E5927E` | as now |
 | **Great Wave** | foam cream `#F3EBD8`, text `#1B2A41` | Prussian `#0B1A33`, text `#EAE3CF` | wave blue `#1F4E8C` → `#7FB0E8` | success sea-green, warning ochre, danger coral |
-| **Red Fuji** | dawn `#F7E9E1`, text `#2A1F1D` | warm charcoal `#1C1614`, text `#F2E4DA` | Fuji red `#B3402B` → `#E8826A` | success pine, warning amber |
+| **Red Fuji** | dawn `#F7E9E1`, text `#2A1F1D` | warm charcoal `#1C1614`, text `#F2E4DA` | Fuji red `#B3402B` → `#F4704A` | success pine, warning amber |
 | **Thirty-six Views** | celadon `#E6EDDF`, text `#1F2A22` | pine night `#0F1A14`, text `#E4EDE0` | pine `#2F6B4F` → `#6FBF8F`, ochre `#B8862B` secondary | danger brick |
 | **Shibuya Night** | lilac `#F6F1FF`, text `#1B1233` | near-black violet `#0A0716`, text `#F3EEFF` | magenta `#C2187A` → `#FF7CC0` (fill `#FF3EA5`), cyan `#22E3FF` as secondary/signal | |
 | **Akihabara** | cool grey `#EEF2F5`, text `#0E1A24` | black-blue `#060B12`, text `#E9F4F1` | green `#0B8A4A` → `#2BE37A`, violet `#8B5CFF` secondary | |
@@ -61,6 +61,7 @@ Pure-black variants pull each dark ground toward `#000000` as Ukiyo-e's does. Th
   Blue icon, named after the activity's old name so existing home-screen shortcuts still resolve) stays as a non-pickable
   entry, so installs that still have it keep a working launcher entry; it is used until a theme is picked. The pattern icons
   (Hearts, Marks, Bubbles) stay in the existing icon screen as manual choices.
+- Superseded: the hidden "brand Blue" alias entry was dropped; the default alias `.MainActivity` is the Ukiyo-e icon (plan decision 4).
 - Picking a theme sets its icon (a pattern choice made by hand sticks until the next theme pick). The switch must not reopen
   the app in the middle of choosing a theme: `AppIcons.apply` for a theme pick is deferred until Herald goes to the background
   (or is next opened), with `DONT_KILL_APP`; the picker shows "Icon changes when you leave the app". The explicit icon screen
@@ -74,7 +75,7 @@ Pure-black variants pull each dark ground toward `#000000` as Ukiyo-e's does. Th
 
 - designsystem: for each theme × variant, the contrast checks `AccentPaletteTest` / `UkiyoeThemeTest` already apply (extend, do
   not copy); a test that every theme has its own neutrals; `AppTheme.named("Blue")` and unknown names give Ukiyo-e.
-- ui/settings: the theme picker lists every theme once and selection round-trips through `AppSettings.accent`;
+- ui/settings: the theme picker lists every theme once and selection round-trips through `AppSettings.theme` (stored under the key "accent");
   `AppIconsManifestTest` covers the new aliases and the kept default alias.
 - Manual on the phone: pick each theme in light, dark and pure black; check Chat, Inbox, Settings and the incoming-call screen
   for unreadable pairs; check the icon changes once the app is left.
