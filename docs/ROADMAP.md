@@ -262,6 +262,11 @@ uses. The protocol itself is described in [hermes-protocol-research.md](hermes-p
 
 ### Notifications & background
 - [x] Inbox: finished runs of the cron jobs you follow, newest first and grouped by day, each read in full as Markdown; per job Off, Inbox (quiet) or Notify, plus a notification for any failed run; an unread count on the sidebar tile. Chips along the top show one job's history (a chip per job, with its unread count) or only the failed runs; or, switched to My groups, the user's own groups of jobs (such as RUBIX and Personal, with Other for the rest), made, renamed and filled on a Chips and groups page and kept on the phone. Runs come from the herald-push plugin (0.4.0, `/herald-push cron`), which reads the gateway's cron output files, so a job keeps its own delivery (Telegram and so on). Pushed runs are kept on the phone and read offline
+- [x] Push log: every accepted bot message and call is kept per gateway (500 / 30 days) and listed under Inbox → Messages
+- [x] Reply on a cron run: opens the bot's chat with the run quoted in the composer
+- [x] Cron output shown as a card in the chat: the job name and first lines, with Show all
+- [x] /heartbeat and /loop say why they can't run (Hermes slash-worker bug, NousResearch/hermes-agent#147596) and point to Scheduled
+- [ ] Hikyaku (Windows): the same push log, Reply on cron runs and cron cards
 - [x] Foreground service that keeps the WS alive during long runs
 - [x] One constant, quiet ongoing notification ("Herald · Connected to Hermes") in place of a Live Update; what a turn does shows in the app
 - [x] Local notifications: approval waiting, run finished; tapping one opens its chat

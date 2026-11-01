@@ -1,6 +1,6 @@
 # Cron deliveries you can find and reply to — design
 
-Date: 2026-11-01. Status: awaiting review.
+Date: 2026-11-01. Status: implemented on feat/cron-inbox-replies (see plan of the same date).
 
 ## Goal
 
