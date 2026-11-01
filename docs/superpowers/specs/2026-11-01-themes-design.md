@@ -79,6 +79,24 @@ Pure-black variants pull each dark ground toward `#000000` as Ukiyo-e's does. Th
 - Manual on the phone: pick each theme in light, dark and pure black; check Chat, Inbox, Settings and the incoming-call screen
   for unreadable pairs; check the icon changes once the app is left.
 
+## Secondary colour (clarifies the table above)
+
+- A theme variant may carry a second colour besides its accent: Thirty-six Views (ochre), Shibuya Night (cyan) and Akihabara
+  (violet). `ThemeVariant` gets `secondary`, `onSecondary`, `secondaryText`, `secondarySoft` (the matching design tokens too);
+  a variant without one reads as its own accent, so every other theme looks exactly as before.
+- Where it shows: links in chat text, unread markers (the Inbox dot and the Bots roster's unread tone), and the brightest tone of the
+  assistant's edge light. It never replaces the accent on buttons, selection or user bubbles.
+- Values (light / dark): ochre `#7A5200` / `#D4A03E`, cyan `#00677B` / `#22E3FF`, violet `#5A2DD0` / `#A080FF`. The spec's first
+  ochre `#B8862B` and violet `#8B5CFF` fail 4.5:1 on the dark grounds, so the dark values are lightened; the light values are
+  darker for the same reason. Each is tested for 4.5:1 on every ground and the accent-tinted card, with 4.5:1 for text on a
+  fill of it, and for looking different from the accent (ΔE ≥ 20).
+
+## Naming
+
+`AccentPalette` becomes `AppTheme` and `AccentColors` becomes `ThemeVariant` (it now holds a variant's accent and neutrals),
+`LocalAccentPalette` becomes `LocalAppTheme`, `AppSettings.accent` becomes `AppSettings.theme` (the stored key stays `"accent"`).
+The tokens `accent`, `accentText`, `accentSoft`, `onAccent` keep their names.
+
 ## Out of scope
 
 User-defined themes, theme import/export, per-bot themes, animated icons, desktop Hikyaku themes (a separate repo).
