@@ -10,5 +10,5 @@ private val NO_SESSION = Regex("""unavailable \(no active session\)""", RegexOpt
 fun slashFailureHint(command: String, output: String): String? {
     if (command !in SESSION_BOUND || !NO_SESSION.containsMatchIn(output)) return null
     return "This gateway can't run /$command from the app: its Hermes build has a known bug " +
-        "(NousResearch/hermes-agent#147596). A routine (Settings → Routines) does the same job and survives restarts."
+        "(NousResearch/hermes-agent#147596). A scheduled job (Scheduled, in the sidebar) does the same job and survives restarts."
 }
