@@ -17,6 +17,26 @@ class WatchAccentsTest {
     }
 
     @Test
+    fun everyThemeSendsItsOwnDarkAccentToTheWatch() {
+        val expected = listOf(
+            "Ukiyo-e" to 0xFFE5927E,
+            "Great Wave" to 0xFF7FB0E8,
+            "Red Fuji" to 0xFFE8826A,
+            "Thirty-six Views" to 0xFF6FBF8F,
+            "Shibuya Night" to 0xFFFF7CC0,
+            "Akihabara" to 0xFF2BE37A,
+        )
+        assertEquals(AppTheme.all.map { it.name }, expected.map { it.first })
+        for ((name, argb) in expected) {
+            val watch = watchAccent(name)
+            assertEquals(argb.toInt(), watch.fill, "$name fill")
+            assertEquals(argb.toInt(), watch.text, "$name text")
+            assertEquals(argb.toInt(), watch.dim, "$name dim")
+            assertEquals(0xFF0A0A0C.toInt(), watch.onFill, "$name onFill")
+        }
+    }
+
+    @Test
     fun anOldOrUnknownNameIsUkiyoeAndEachThemeHasItsOwnRevision() {
         for (old in listOf("Blue", "Violet", "Green", "Orange", "Pink", "Teal", "Mauve", "")) assertEquals(watchAccent("Ukiyo-e"), watchAccent(old), old)
         assertEquals(watchAccent("Ukiyo-e"), watchAccent(null))
