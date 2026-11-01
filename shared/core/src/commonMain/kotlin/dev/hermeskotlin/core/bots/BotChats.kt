@@ -55,6 +55,13 @@ class BotChats(private val backend: BotChatBackend) {
         return lock.withLock { resolve(bot) }
     }
 
+    /**
+     * Only looks: the stored session to open for [name]'s existing Bot Chat (its live end), or null when the
+     * profile has none. Never starts a chat, so it is safe for a profile that isn't an opted-in bot, whose Bot
+     * Chat must never be created by this app. Throws [BotChatUnavailableException] when the lookup fails.
+     */
+    suspend fun find(name: String): String? = lookup(Bot(name = name))
+
     private suspend fun resolve(bot: Bot): String {
         lookup(bot)?.let { return it }
         if (knownLock.withLock { bot.name in known }) {

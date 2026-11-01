@@ -6,6 +6,8 @@ import dev.hermeskotlin.core.bots.BotOptInStore
 import dev.hermeskotlin.core.auth.AuthApi
 import dev.hermeskotlin.core.auth.PersistentCookiesStorage
 import dev.hermeskotlin.core.bots.BotChats
+import dev.hermeskotlin.core.bots.BotSession
+import dev.hermeskotlin.core.chat.ComposeDraft
 import dev.hermeskotlin.core.cache.InMemoryOfflineDao
 import dev.hermeskotlin.core.cache.OfflineCache
 import dev.hermeskotlin.core.cache.PlainSealer
@@ -501,6 +503,72 @@ class AppViewModelTest {
         assertEquals("Scribe", bot.target.bot?.label)
         assertEquals("b1", bot.target.storedSessionId)
         assertTrue(started.isEmpty())
+    }
+
+    /** A backend that can only look: any attempt to start a Bot Chat fails the test. */
+    private class LookupOnly(private val chat: BotSession?, private val fails: Boolean = false) : BotChatBackend {
+        val lookups = mutableListOf<String>()
+        override suspend fun botChat(profile: String): BotSession? {
+            lookups += profile
+            if (fails) error("lookup failed")
+            return chat
+        }
+        override suspend fun startBotChat(profile: String): String = error("must never start a Bot Chat for $profile")
+    }
+
+    private val reply = ComposeDraft(text = "Re: report\n> a\n\n")
+
+    @Test
+    fun aReplyForAProfileThatIsNotABotOpensItsExistingBotChat() = runTest {
+        gateways.save(home)
+        signedIn(home)
+        BotOptInStore(store).record(home.gatewayUrl, listOf(plain("default", "Shisha"), made("scribe")))
+        val backend = LookupOnly(BotSession(id = "root", resolvedId = "tip"))
+        val app = viewModel(backend)
+        app.awaitChat(home)
+
+        links.shareToBot("froebel", reply)
+        val chat = app.route.first { it is Route.Chat && it.target.storedSessionId == "tip" } as Route.Chat
+
+        assertEquals(listOf("froebel"), backend.lookups)
+        assertEquals("froebel", chat.target.profile)
+        assertNull(chat.target.bot)
+        assertEquals(reply, chat.target.draft)
+        assertEquals("froebel", app.chatsProfile.value)
+    }
+
+    @Test
+    fun aReplyWithoutABotChatFallsBackToANewChatWithTheDraft() = runTest {
+        gateways.save(home)
+        signedIn(home)
+        BotOptInStore(store).record(home.gatewayUrl, listOf(plain("default", "Shisha"), made("scribe")))
+        val backend = LookupOnly(chat = null)
+        val app = viewModel(backend)
+        app.awaitChat(home)
+
+        links.shareToBot("froebel", reply)
+        val chat = app.route.first { it is Route.Chat && it.target.draft == reply } as Route.Chat
+
+        assertEquals(listOf("froebel"), backend.lookups)
+        assertNull(chat.target.storedSessionId)
+        assertEquals("froebel", chat.target.profile)
+    }
+
+    @Test
+    fun aReplyWhoseLookupFailsFallsBackToANewChatWithTheDraft() = runTest {
+        gateways.save(home)
+        signedIn(home)
+        BotOptInStore(store).record(home.gatewayUrl, listOf(plain("default", "Shisha"), made("scribe")))
+        val backend = LookupOnly(chat = null, fails = true)
+        val app = viewModel(backend)
+        app.awaitChat(home)
+
+        links.shareToBot("froebel", reply)
+        val chat = app.route.first { it is Route.Chat && it.target.draft == reply } as Route.Chat
+
+        assertEquals(listOf("froebel"), backend.lookups)
+        assertNull(chat.target.storedSessionId)
+        assertEquals("froebel", chat.target.profile)
     }
 
     private fun plain(name: String, display: String, hidden: Boolean = false) = Bot(

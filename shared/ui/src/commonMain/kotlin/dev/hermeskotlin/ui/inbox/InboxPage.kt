@@ -562,27 +562,41 @@ private fun MoreRow(loading: Boolean, error: String?, onClick: () -> Unit) {
 /** One run in full, as Markdown. */
 @Composable
 internal fun RunView(run: InboxRun, name: String, loading: Boolean, note: RunNote?, onBack: () -> Unit, onReply: () -> Unit) {
-    SubpageHeader(name, onBack = onBack, subtitle = (if (run.failed) "Failed · " else "") + messageTime(run.at.toDouble(), uses24HourClock()))
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        if (note != null) {
-            Text(
-                when (note) {
-                    RunNote.Offline -> "Only the start of this report is on the phone. Connect to the gateway to read the rest."
-                    RunNote.Gone -> "Only the start of this report is on the phone: the gateway no longer has it."
-                    RunNote.Failed -> "Only the start of this report is on the phone: the gateway couldn't send the rest."
-                },
-                style = Theme[typography][bodySmall],
-                color = Theme[colors][textTertiary],
+    Column(Modifier.fillMaxSize()) {
+        SubpageHeader(name, onBack = onBack, subtitle = (if (run.failed) "Failed · " else "") + messageTime(run.at.toDouble(), uses24HourClock()))
+        // Only the report scrolls; the Reply bar below it stays put.
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (note != null) {
+                Text(
+                    when (note) {
+                        RunNote.Offline -> "Only the start of this report is on the phone. Connect to the gateway to read the rest."
+                        RunNote.Gone -> "Only the start of this report is on the phone: the gateway no longer has it."
+                        RunNote.Failed -> "Only the start of this report is on the phone: the gateway couldn't send the rest."
+                    },
+                    style = Theme[typography][bodySmall],
+                    color = Theme[colors][textTertiary],
+                )
+            }
+            if (loading && run.text.isEmpty()) ListSkeleton() else MarkdownText(remember(run.text) { keepLineBreaks(run.text) })
+        }
+        // Bottom padding leaves room for the sidebar's New chat button, which lies over the page's foot.
+        Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)) {
+            Button(
+                if (run.failed) "Ask about this" else "Reply",
+                onClick = onReply,
+                modifier = Modifier.fillMaxWidth(),
+                variant = ButtonVariant.Secondary,
+                size = ButtonSize.Medium,
+                enabled = !loading,
             )
         }
-        if (loading && run.text.isEmpty()) ListSkeleton() else MarkdownText(remember(run.text) { keepLineBreaks(run.text) })
-        Button(if (run.failed) "Ask about this" else "Reply", onClick = onReply, variant = ButtonVariant.Ghost, size = ButtonSize.Small, enabled = !loading)
     }
 }
 
