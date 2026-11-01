@@ -63,6 +63,12 @@ val accentText = ThemeToken<Color>("accent_text")
 /** Tinted fill for selected rows, secondary buttons and accent icon circles. */
 val accentSoft = ThemeToken<Color>("accent_soft")
 
+/** A second theme colour for accents the primary one should not carry; the accent itself when a theme has none. */
+val secondary = ThemeToken<Color>("secondary")
+val onSecondary = ThemeToken<Color>("on_secondary")
+val secondaryText = ThemeToken<Color>("secondary_text")
+val secondarySoft = ThemeToken<Color>("secondary_soft")
+
 /** The highest-stakes confirm ("Allow once"): a pill that stands out from the blue. */
 val inverse = ThemeToken<Color>("inverse")
 val onInverse = ThemeToken<Color>("on_inverse")

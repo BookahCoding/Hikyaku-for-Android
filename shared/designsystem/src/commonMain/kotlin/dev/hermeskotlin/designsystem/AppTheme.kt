@@ -19,7 +19,14 @@ class ThemeVariant(
     val bubble: Color = accent,
     val bubbleStroke: Color = accent,
     val neutrals: Neutrals? = null,
+    val secondary: Color = accent,
+    val onSecondary: Color = onAccent,
+    val secondaryText: Color = text,
+    val secondarySoft: Color = soft,
 )
+
+/** Whether this variant has a second colour of its own rather than repeating the accent. */
+val ThemeVariant.hasSecondary: Boolean get() = secondary != accent
 
 /**
  * A theme the user can pick in Settings. [Blue] is Herald blue #2F6BF5: one fill with white on it in both

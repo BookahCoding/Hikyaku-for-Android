@@ -10,7 +10,7 @@ class ThemeColorsTest {
         background, surface, surface2, surface3, well, thumb, surfaceElevated, input, sidebar,
         userBubble, userBubbleStroke, onUserBubble,
         text, textSecondary, textTertiary, textMuted,
-        accent, onAccent, accentText, accentSoft, inverse, onInverse,
+        accent, onAccent, accentText, accentSoft, secondary, onSecondary, secondaryText, secondarySoft, inverse, onInverse,
         stroke, strokeStrong,
         danger, success, warning, dangerSoft, successSoft, warningSoft,
     )
