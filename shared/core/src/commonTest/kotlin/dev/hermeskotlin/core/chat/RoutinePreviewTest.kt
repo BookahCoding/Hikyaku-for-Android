@@ -27,6 +27,18 @@ class RoutinePreviewTest {
 
     @Test
     fun aLongLineIsCut() {
-        assertTrue(routine("x".repeat(5000)).preview().length <= 300)
+        val shown = routine("x".repeat(5000)).preview()
+        assertTrue(shown.length <= 300)
+        assertTrue(shown.endsWith("…"))
+    }
+
+    @Test
+    fun aSingleLongLineHasMore() {
+        assertTrue(routine("x".repeat(5000)).hasMore)
+    }
+
+    @Test
+    fun trailingBlankLinesAreNotMore() {
+        assertFalse(routine("a\nb\nc\n\n   \n").hasMore)
     }
 }
