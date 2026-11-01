@@ -84,6 +84,7 @@ import dev.hermeskotlin.core.rooms.RoomMember
 import dev.hermeskotlin.designsystem.accent
 import dev.hermeskotlin.designsystem.accentSoft
 import dev.hermeskotlin.designsystem.accentText
+import dev.hermeskotlin.designsystem.secondary
 import dev.hermeskotlin.designsystem.body
 import dev.hermeskotlin.designsystem.bodySmall
 import dev.hermeskotlin.designsystem.caption
@@ -524,14 +525,14 @@ private fun BotCard(
 
 /**
  * How a bot stands, as a dot: the accent, ringed, while it works; the warning, ringed, when it needs
- * something; the accent alone for lines the user hasn't read; else a faint dot. The card says it in words.
+ * something; the secondary (the accent where a theme has none) for lines the user hasn't read; else a faint dot. The card says it in words.
  */
 @Composable
 private fun StatusDot(tone: BotTone, unread: Boolean) {
     val (dot, ring) = when {
         tone == BotTone.Attention -> Theme[colors][warning] to Theme[colors][warningSoft]
         tone == BotTone.Active -> Theme[colors][accent] to Theme[colors][accentSoft]
-        unread -> Theme[colors][accent] to Color.Transparent
+        unread -> Theme[colors][secondary] to Color.Transparent
         else -> Theme[colors][textMuted].copy(alpha = 0.5f) to Color.Transparent
     }
     Box(

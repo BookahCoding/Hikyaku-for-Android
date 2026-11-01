@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,8 +29,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,7 +47,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -116,7 +112,7 @@ import dev.hermeskotlin.core.settings.ThemeMode
 import dev.hermeskotlin.core.settings.VoicePause
 import dev.hermeskotlin.core.settings.DictationEngine
 import dev.hermeskotlin.core.settings.WallpaperStrength
-import dev.hermeskotlin.designsystem.AccentPalette
+import dev.hermeskotlin.designsystem.AppTheme
 import dev.hermeskotlin.designsystem.accent
 import dev.hermeskotlin.designsystem.accentText
 import dev.hermeskotlin.designsystem.background
@@ -225,6 +221,7 @@ fun SettingsScreen(
         onOpenPhoneTools = { phoneToolsOpen = true },
         appIcon = appIcons.current,
         onOpenAppIcon = { appIconOpen = true },
+        onThemeIcon = appIcons::applyWhenLeaving,
         onOpenStartInstruction = { startInstructionOpen = true },
         suggestions = suggestions,
         onInstallSuggestions = viewModel::installSuggestions,
@@ -320,8 +317,10 @@ internal fun SettingsView(
     onChooseWallpaper: () -> Unit = {},
     onRemoveWallpaper: () -> Unit = {},
     onOpenPhoneTools: () -> Unit = {},
-    appIcon: AppIcon = AppIcon.Blue,
+    appIcon: AppIcon = AppIcon.Ukiyoe,
     onOpenAppIcon: () -> Unit = {},
+    /** The icon a theme pick brings, shown once the app is left. */
+    onThemeIcon: (AppIcon) -> Unit = {},
     onOpenStartInstruction: () -> Unit = {},
     /** Where the Next Prompt plugin behind Suggested replies stands on the gateway. */
     suggestions: SuggestionsPlugin = SuggestionsPlugin.Checking,
@@ -351,11 +350,11 @@ internal fun SettingsView(
                 AccountCard(gatewayName, gatewayUrl, info.userLabel, onCheckConnection)
 
                 Section("Appearance") {
-                    Field("Theme") {
+                    Field("Mode") {
                         SegmentedControl(
                             options = ThemeMode.entries,
-                            selected = settings.theme,
-                            onSelect = { mode -> onUpdate { it.copy(theme = mode) } },
+                            selected = settings.colorMode,
+                            onSelect = { mode -> onUpdate { it.copy(colorMode = mode) } },
                             optionLabel = { it.name },
                             optionIcon = {
                                 when (it) {
@@ -367,11 +366,18 @@ internal fun SettingsView(
                         )
                     }
                     Divider()
-                    Field("Accent", detail = "Buttons, links and your own messages.") {
-                        AccentPicker(
-                            selected = AccentPalette.named(settings.accent),
-                            onSelect = { palette -> onUpdate { it.copy(accent = palette.name) } },
-                        )
+                    Field("Theme", detail = "Colors for buttons, links, your own messages and the backgrounds.") {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ThemePicker(
+                                selected = AppTheme.named(settings.theme),
+                                pureBlack = settings.pureBlack,
+                                onSelect = { palette ->
+                                    onUpdate { it.copy(theme = palette.name) }
+                                    if (shouldQueueThemeIcon(palette, AppTheme.named(settings.theme))) onThemeIcon(palette.icon())
+                                },
+                            )
+                            Text("The icon changes when you leave the app.", style = Theme[typography][bodySmall], color = Theme[colors][textTertiary])
+                        }
                     }
                     Divider()
                     NavRow(title = "App icon", detail = appIcon.label, icon = Lucide.LayoutGrid, onClick = onOpenAppIcon)
@@ -930,38 +936,6 @@ internal fun IconTile(icon: ImageVector) {
         contentAlignment = Alignment.Center,
     ) {
         UnstyledIcon(icon, contentDescription = null, tint = Theme[colors][textSecondary], modifier = Modifier.size(15.dp))
-    }
-}
-
-/**
- * One 30dp swatch per accent preset, drawn in the accent the current light or dark scheme would use, the
- * picked one ringed in its own colour. Each is a 48dp touch target; on a narrow phone or with a large display
- * size the row wraps.
- */
-@Composable
-private fun AccentPicker(selected: AccentPalette, onSelect: (AccentPalette) -> Unit) {
-    val dark = Theme[colors][background].luminance() < 0.5f
-    FlowRow(Modifier.selectableGroup()) {
-        AccentPalette.all.forEach { palette ->
-            val isSelected = palette == selected
-            val color = if (dark) palette.dark.accent else palette.light.accent
-            Box(
-                Modifier
-                    .size(MinTouchTarget)
-                    .clip(CircleShape)
-                    .selectable(selected = isSelected, role = Role.RadioButton, onClick = { onSelect(palette) })
-                    .semantics { contentDescription = palette.name },
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    Modifier
-                        .size(38.dp)
-                        .border(2.dp, if (isSelected) color else Color.Transparent, CircleShape)
-                        .padding(4.dp)
-                        .background(color, CircleShape),
-                )
-            }
-        }
     }
 }
 

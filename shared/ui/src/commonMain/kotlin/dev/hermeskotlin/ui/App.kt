@@ -28,8 +28,8 @@ import com.composeunstyled.theme.Theme
 import dev.hermeskotlin.core.settings.AppSettings
 import dev.hermeskotlin.core.settings.SettingsStore
 import dev.hermeskotlin.core.settings.ThemeMode
-import dev.hermeskotlin.designsystem.AccentPalette
-import dev.hermeskotlin.designsystem.LocalAccentPalette
+import dev.hermeskotlin.designsystem.AppTheme
+import dev.hermeskotlin.designsystem.LocalAppTheme
 import dev.hermeskotlin.designsystem.PureBlack
 import dev.hermeskotlin.designsystem.hermesTheme
 import dev.hermeskotlin.designsystem.components.LocalCodeWrap
@@ -123,7 +123,7 @@ fun App(
 ) {
     // Nothing is drawn until the stored settings are read, so the first frame has the right theme.
     val settings = koinInject<SettingsStore>().settings.collectAsStateWithLifecycle().value ?: return
-    val dark = when (settings.theme) {
+    val dark = when (settings.colorMode) {
         ThemeMode.System -> isSystemInDarkTheme()
         ThemeMode.Light -> false
         ThemeMode.Dark -> true
@@ -135,10 +135,10 @@ fun App(
         else -> ColorScheme.Dark
     }
     val density = LocalDensity.current
-    val palette = AccentPalette.named(settings.accent)
+    val palette = AppTheme.named(settings.theme)
     hermesTheme(palette)(scheme) {
         CompositionLocalProvider(
-            LocalAccentPalette provides palette,
+            LocalAppTheme provides palette,
             LocalAppSettings provides settings,
             LocalCodeWrap provides settings.wrapCode,
             LocalGlow provides settings.glow,

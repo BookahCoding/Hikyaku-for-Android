@@ -40,7 +40,7 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.X
 import com.composeunstyled.Text
 import com.composeunstyled.theme.Theme
-import dev.hermeskotlin.designsystem.LocalAccentPalette
+import dev.hermeskotlin.designsystem.LocalAppTheme
 import dev.hermeskotlin.designsystem.components.IconButton
 import dev.hermeskotlin.designsystem.label
 import dev.hermeskotlin.designsystem.typography
@@ -61,7 +61,7 @@ internal fun CircleOverlay(screen: ScreenCapture, onCircled: (ScreenRegion) -> U
     val scope = rememberCoroutineScope()
     val capture by rememberUpdatedState(screen)
     val circled by rememberUpdatedState(onCircled)
-    val edge = LocalAccentPalette.current.edge
+    val edge = LocalAppTheme.current.edge
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         shot?.let { Image(it, contentDescription = "Your screen", contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize()) }

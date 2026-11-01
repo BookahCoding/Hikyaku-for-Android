@@ -1,35 +1,47 @@
 package dev.hermeskotlin.ui.voice
 
+import dev.hermeskotlin.designsystem.AppTheme
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
 
 class WatchAccentsTest {
 
     @Test
-    fun blueGoesToTheWatchAsItsOwnTheme() {
-        val blue = watchAccent("Blue")
-        assertEquals(0xFF2F6BF5.toInt(), blue.fill)
-        assertEquals(0xFF7AA5FF.toInt(), blue.text)
-        assertEquals(0xFFFFFFFF.toInt(), blue.onFill)
+    fun aThemeSendsItsDarkColors() {
+        val ukiyoe = watchAccent("Ukiyo-e")
+        assertEquals(0xFFE5927E.toInt(), ukiyoe.fill)
+        assertEquals(0xFFE5927E.toInt(), ukiyoe.text)
+        assertEquals(0xFF0A0A0C.toInt(), ukiyoe.onFill)
         // The soft tint, opaque: a see-through dim would wash out on the watch.
-        assertEquals(0xFF4A84FE.toInt(), blue.dim)
+        assertEquals(0xFFE5927E.toInt(), ukiyoe.dim)
     }
 
     @Test
-    fun aPresetSendsItsDarkColors() {
-        val violet = watchAccent("Violet")
-        assertEquals(0xFFA78BFA.toInt(), violet.fill)
-        assertEquals(0xFFA78BFA.toInt(), violet.text)
-        assertEquals(0xFF0A0A0C.toInt(), violet.onFill)
-        assertEquals(0xFFA78BFA.toInt(), violet.dim)
+    fun everyThemeSendsItsOwnDarkAccentToTheWatch() {
+        val expected = listOf(
+            "Ukiyo-e" to 0xFFE5927E,
+            "Great Wave" to 0xFF7FB0E8,
+            "Red Fuji" to 0xFFF4704A,
+            "Thirty-six Views" to 0xFF6FBF8F,
+            "Shibuya Night" to 0xFFFF7CC0,
+            "Akihabara" to 0xFF2BE37A,
+        )
+        assertEquals(AppTheme.all.map { it.name }, expected.map { it.first })
+        for ((name, argb) in expected) {
+            val watch = watchAccent(name)
+            assertEquals(argb.toInt(), watch.fill, "$name fill")
+            assertEquals(argb.toInt(), watch.text, "$name text")
+            assertEquals(argb.toInt(), watch.dim, "$name dim")
+            assertEquals(0xFF0A0A0C.toInt(), watch.onFill, "$name onFill")
+        }
     }
 
     @Test
-    fun anUnknownPresetIsBlueAndEachPresetHasItsOwnRevision() {
-        assertEquals(watchAccent("Blue"), watchAccent("Mauve"))
-        val revisions = listOf("Blue", "Violet", "Green", "Orange", "Pink", "Teal").map { watchAccent(it).revision }
+    fun anOldOrUnknownNameIsUkiyoeAndEachThemeHasItsOwnRevision() {
+        for (old in listOf("Blue", "Violet", "Green", "Orange", "Pink", "Teal", "Mauve", "")) assertEquals(watchAccent("Ukiyo-e"), watchAccent(old), old)
+        assertEquals(watchAccent("Ukiyo-e"), watchAccent(null))
+        val revisions = AppTheme.all.map { watchAccent(it.name).revision }
+        assertEquals(6, revisions.size)
         assertEquals(revisions.size, revisions.toSet().size)
-        assertNotEquals(watchAccent("Blue").revision, watchAccent("Teal").revision)
     }
 }

@@ -1,13 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The app icons the user can pick in Settings (AppIcons), besides the default brand blue in colors.xml. -->
+<!-- The pattern app icons the user can pick in Settings (AppIcons); the theme icons are drawables. -->
 <resources>
-    <!-- The accents' light-scheme colors (the design system's AccentPalette), behind the white mark. -->
-    <color name="launcher_violet">#7C3AED</color>
-    <color name="launcher_green">#137538</color>
-    <color name="launcher_orange">#B04700</color>
-    <color name="launcher_pink">#B0327E</color>
-    <color name="launcher_teal">#0C6A84</color>
-
     <!-- The patterns: a background, its shapes' fill and their outline. -->
     <color name="launcher_hearts">#F0244A</color>
     <color name="launcher_hearts_shape">#FF5C78</color>

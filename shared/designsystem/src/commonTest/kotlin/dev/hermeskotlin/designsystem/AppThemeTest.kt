@@ -9,7 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-class AccentPaletteTest {
+class AppThemeTest {
 
     private fun contrast(a: Color, b: Color): Float {
         val la = a.luminance()
@@ -17,7 +17,7 @@ class AccentPaletteTest {
         return (max(la, lb) + 0.05f) / (min(la, lb) + 0.05f)
     }
 
-    private fun schemes(palette: AccentPalette) = listOf(
+    private fun schemes(palette: AppTheme) = listOf(
         "light" to lightColors(palette.light),
         "dark" to darkColors(palette.dark),
         "black" to pureBlackColors(palette.black),
@@ -25,7 +25,7 @@ class AccentPaletteTest {
 
     @Test
     fun textOnEveryAccentIsReadable() {
-        for (palette in AccentPalette.all) {
+        for (palette in AppTheme.all) {
             for ((scheme, colors) in listOf("light" to palette.light, "dark" to palette.dark, "black" to palette.black)) {
                 val ratio = contrast(colors.onAccent, colors.accent)
                 assertTrue(ratio >= 4.5f, "${palette.name} $scheme: on-accent text is $ratio:1")
@@ -35,7 +35,7 @@ class AccentPaletteTest {
 
     @Test
     fun accentTextReadsOnEveryGroundItSitsOn() {
-        for (palette in AccentPalette.all) {
+        for (palette in AppTheme.all) {
             for ((scheme, colors) in schemes(palette)) {
                 val text = colors.getValue(accentText)
                 val grounds = listOf(background, surface, surface2, surface3, surfaceElevated).map { colors.getValue(it) }
@@ -50,14 +50,25 @@ class AccentPaletteTest {
     }
 
     @Test
-    fun anUnknownOrMissingNameIsBlue() {
-        assertEquals(AccentPalette.Blue, AccentPalette.named("Neon"))
-        assertEquals(AccentPalette.Blue, AccentPalette.named(null))
-        assertEquals(AccentPalette.Teal, AccentPalette.named("Teal"))
+    fun anUnknownOrMissingNameIsUkiyoe() {
+        assertEquals(AppTheme.Ukiyoe, AppTheme.named("Neon"))
+        assertEquals(AppTheme.Ukiyoe, AppTheme.named(null))
+        assertEquals(AppTheme.Ukiyoe, AppTheme.named(""))
+        // An accent from before themes replaced them.
+        for (old in listOf("Blue", "Violet", "Green", "Orange", "Pink", "Teal")) assertEquals(AppTheme.Ukiyoe, AppTheme.named(old), old)
+        assertEquals(Themes.GreatWave, AppTheme.named("Great Wave"))
+    }
+
+    @Test
+    fun theListIsTheSixThemesInOrder() {
+        assertEquals(
+            listOf("Ukiyo-e", "Great Wave", "Red Fuji", "Thirty-six Views", "Shibuya Night", "Akihabara"),
+            AppTheme.all.map { it.name },
+        )
     }
 
     @Test
     fun namesAreUnique() {
-        assertEquals(AccentPalette.all.size, AccentPalette.all.map { it.name }.toSet().size)
+        assertEquals(AppTheme.all.size, AppTheme.all.map { it.name }.toSet().size)
     }
 }

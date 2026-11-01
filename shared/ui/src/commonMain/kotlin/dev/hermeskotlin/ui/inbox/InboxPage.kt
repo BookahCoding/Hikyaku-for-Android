@@ -84,6 +84,7 @@ import dev.hermeskotlin.core.inbox.Follow
 import dev.hermeskotlin.core.inbox.InboxRun
 import dev.hermeskotlin.designsystem.accentSoft
 import dev.hermeskotlin.designsystem.accentText
+import dev.hermeskotlin.designsystem.secondaryText
 import dev.hermeskotlin.designsystem.body
 import dev.hermeskotlin.designsystem.bodySmall
 import dev.hermeskotlin.designsystem.code
@@ -525,7 +526,7 @@ private fun RunCard(run: InboxRun, name: String, unread: Boolean, onClick: () ->
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 if (unread) {
-                    Box(Modifier.size(8.dp).background(Theme[colors][accentText], CircleShape).clearAndSetSemantics { contentDescription = "Unread" })
+                    Box(Modifier.size(8.dp).background(Theme[colors][secondaryText], CircleShape).clearAndSetSemantics { contentDescription = "Unread" })
                 }
             }
             Text(

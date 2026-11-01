@@ -195,6 +195,10 @@ import dev.hermeskotlin.designsystem.danger
 import dev.hermeskotlin.designsystem.heading
 import dev.hermeskotlin.designsystem.label
 import dev.hermeskotlin.designsystem.onAccent
+import dev.hermeskotlin.designsystem.onSecondary
+import dev.hermeskotlin.designsystem.secondary
+import dev.hermeskotlin.designsystem.secondarySoft
+import dev.hermeskotlin.designsystem.secondaryText
 import dev.hermeskotlin.designsystem.radii
 import dev.hermeskotlin.designsystem.radiusMedium
 import dev.hermeskotlin.designsystem.stroke
@@ -1210,9 +1214,9 @@ private fun NavTile(link: NavLink, modifier: Modifier = Modifier) {
                 Text(
                     if (link.badge > 99) "99+" else link.badge.toString(),
                     style = Theme[typography][code].copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                    color = Theme[colors][onAccent],
+                    color = Theme[colors][onSecondary],
                     modifier = Modifier
-                        .background(Theme[colors][accent], CircleShape)
+                        .background(Theme[colors][secondary], CircleShape)
                         .padding(horizontal = 6.dp, vertical = 1.dp)
                         .semantics { contentDescription = "${link.badge} unread" },
                 )
@@ -1798,7 +1802,8 @@ internal fun SessionRow(
     val toneColor = Theme[colors][
         when (tone) {
             RowTone.Approval, RowTone.Question -> warning
-            RowTone.Running, RowTone.Reply -> accentText
+            RowTone.Running -> accentText
+            RowTone.Reply -> secondaryText
             RowTone.Draft -> textTertiary
             RowTone.Idle -> textMuted
         },
@@ -1899,7 +1904,8 @@ private val PROJECT_TAG_MAX_WIDTH = 112.dp
 private fun StatusDisc(tone: RowTone, color: Color) {
     val fill = when (tone) {
         RowTone.Approval, RowTone.Question -> Theme[colors][warningSoft]
-        RowTone.Running, RowTone.Reply -> Theme[colors][accentSoft]
+        RowTone.Running -> Theme[colors][accentSoft]
+        RowTone.Reply -> Theme[colors][secondarySoft]
         RowTone.Draft, RowTone.Idle -> Theme[colors][surface2]
     }
     Box(Modifier.size(28.dp).background(fill, CircleShape).clearAndSetSemantics { }, contentAlignment = Alignment.Center) {

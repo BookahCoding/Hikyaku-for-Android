@@ -20,8 +20,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.unit.dp
-import dev.hermeskotlin.designsystem.AccentPalette
-import dev.hermeskotlin.designsystem.LocalAccentPalette
+import dev.hermeskotlin.designsystem.AppTheme
+import dev.hermeskotlin.designsystem.LocalAppTheme
+import dev.hermeskotlin.designsystem.hasSecondary
 import dev.hermeskotlin.designsystem.components.LocalGlow
 import dev.hermeskotlin.core.chat.ChatState
 import kotlinx.coroutines.flow.emptyFlow
@@ -98,7 +99,7 @@ internal fun MessengerEdge(model: AssistantPanelModel, modifier: Modifier = Modi
         }
     }
 
-    val edge = LocalAccentPalette.current.edge
+    val edge = LocalAppTheme.current.edge
     // With the Glow setting off, only the crisp line: the edge still tells what Hermes is doing.
     val layers = if (LocalGlow.current) LAYERS else LAYERS.takeLast(1)
     Canvas(modifier) {
@@ -126,8 +127,19 @@ internal fun MessengerEdge(model: AssistantPanelModel, modifier: Modifier = Modi
 internal class EdgeColors(val deep: Color, val bright: Color, val head: Color)
 
 // The accent's text shade is the light one on dark, so the trail stands out from the rim even where the fill is one blue.
-internal val AccentPalette.edge: EdgeColors
-    get() = EdgeColors(light.accent, dark.text, lerp(Color.White, dark.text, 0.22f))
+internal val AppTheme.edge: EdgeColors
+    get() = edgeColors(this, dark = true)
+
+/**
+ * The edge's colours for one scheme. [EdgeColors.deep] and [EdgeColors.bright] always come from the accent; the brightest
+ * [EdgeColors.head] is the variant's secondary where the theme has one, else the near-white it always was.
+ * The screen edge is lit on the dark variant, so [AppTheme.edge] asks for `dark = true`.
+ */
+internal fun edgeColors(theme: AppTheme, dark: Boolean): EdgeColors {
+    val variant = if (dark) theme.dark else theme.light
+    val head = if (variant.hasSecondary) variant.secondary else lerp(Color.White, theme.dark.text, 0.22f)
+    return EdgeColors(theme.light.accent, theme.dark.text, head)
+}
 private const val STOPS = 72
 private const val TAIL = 0.32f
 private val CORNER = 36.dp
