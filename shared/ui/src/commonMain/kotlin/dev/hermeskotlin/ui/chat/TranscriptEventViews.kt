@@ -48,7 +48,9 @@ import dev.hermeskotlin.core.chat.ChatMessage
 import dev.hermeskotlin.core.chat.DeliveryOutcome
 import dev.hermeskotlin.core.chat.ToolActivity
 import dev.hermeskotlin.core.chat.TranscriptEvent
+import dev.hermeskotlin.core.chat.hasMore
 import dev.hermeskotlin.core.chat.messageTarget
+import dev.hermeskotlin.core.chat.preview
 import dev.hermeskotlin.core.network.HermesJson
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -91,11 +93,7 @@ internal fun TranscriptEventRow(event: TranscriptEvent) {
             tint = if (event.failed) Theme[colors][danger] else Theme[colors][textTertiary],
             body = event.output.takeIf { it.isNotBlank() }?.let { { Monospace(it) } },
         )
-        is TranscriptEvent.Routine -> FoldedLine(
-            icon = Lucide.AlarmClock,
-            title = "Routine “${event.name}” ran",
-            body = event.body.takeIf { it.isNotBlank() }?.let { { MarkdownText(it) } },
-        )
+        is TranscriptEvent.Routine -> RoutineCard(event)
         is TranscriptEvent.FailedTurn -> FoldedLine(
             icon = Lucide.CircleAlert,
             title = event.text.ifBlank { "This turn did not complete." },
@@ -333,6 +331,35 @@ private fun FoldedLine(icon: ImageVector, title: String, tint: Color = Theme[col
             if (body != null) Chevron(open)
         }
         if (open && body != null) Box(Modifier.padding(start = 27.dp)) { body() }
+    }
+}
+
+/** A routine's output as a card: the job's name, its first lines, and "Show all" for the rest. */
+@Composable
+private fun RoutineCard(event: TranscriptEvent.Routine) {
+    var open by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            UnstyledIcon(Lucide.AlarmClock, contentDescription = null, tint = Theme[colors][textTertiary], modifier = Modifier.size(15.dp))
+            Text(
+                event.name,
+                style = Theme[typography][bodySmall],
+                color = Theme[colors][textSecondary],
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        val shown = if (open) event.body else event.preview()
+        if (shown.isNotBlank()) Box(Modifier.padding(start = 23.dp)) { MarkdownText(shown) }
+        if (event.hasMore) {
+            Text(
+                if (open) "Show less" else "Show all",
+                style = Theme[typography][bodySmall],
+                color = Theme[colors][textTertiary],
+                modifier = Modifier.padding(start = 23.dp).clickable { open = !open },
+            )
+        }
     }
 }
 
