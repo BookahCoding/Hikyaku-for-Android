@@ -246,6 +246,19 @@ internal fun InboxView(
         IconButton(Lucide.Settings2, contentDescription = "Choose jobs", onClick = viewModel::chooseJobs)
     }
     state.block?.let { BlockNotice(it, onOpenSettings) }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Chip("Runs", selected = state.tab == InboxTab.Runs, onClick = { viewModel.setTab(InboxTab.Runs) }, count = unread.takeIf { it > 0 })
+        Chip(
+            "Messages",
+            selected = state.tab == InboxTab.Messages,
+            onClick = { viewModel.setTab(InboxTab.Messages) },
+            count = state.unreadMessages.takeIf { it > 0 },
+        )
+    }
+    if (state.tab == InboxTab.Messages) {
+        MessageLogView(state.messages, state.readMessages, state::nameOf, viewModel::openMessage)
+        return
+    }
     var renaming by remember { mutableStateOf<JobChip?>(null) }
     // Folders are the way in on the folder layout; the chips belong to the single list.
     if (!folders) FilterChips(state, onSelect = viewModel::setFilter, onRename = { renaming = it })

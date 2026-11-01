@@ -2,6 +2,7 @@ package dev.hermeskotlin.ui.inbox
 
 import dev.hermeskotlin.core.auth.AuthApi
 import dev.hermeskotlin.core.auth.PersistentCookiesStorage
+import dev.hermeskotlin.core.chat.ChatLinks
 import dev.hermeskotlin.core.connection.ConnectionState
 import dev.hermeskotlin.core.connection.GatewayConnection
 import dev.hermeskotlin.core.cron.CronApi
@@ -16,6 +17,8 @@ import dev.hermeskotlin.core.push.NotificationProfiles
 import dev.hermeskotlin.core.push.PushApi
 import dev.hermeskotlin.core.push.PushGateway
 import dev.hermeskotlin.core.push.PushKeys
+import dev.hermeskotlin.core.push.PushLogEntry
+import dev.hermeskotlin.core.push.PushLogStore
 import dev.hermeskotlin.core.push.PushRegistration
 import dev.hermeskotlin.core.push.PushSetup
 import dev.hermeskotlin.core.profiles.ProfileStore
@@ -112,6 +115,8 @@ class InboxViewModelTest {
 
     private val disk = InMemoryKeyValueStore()
     private val store = InboxStore(disk, dispatcher)
+    private val pushLog = PushLogStore(InMemoryKeyValueStore(), dispatcher)
+    private val chatLinks = ChatLinks()
 
     private suspend fun TestScope.viewModel(socket: PluginGateway): InboxViewModel {
         val config = MockEngineConfig()
@@ -132,7 +137,7 @@ class InboxViewModelTest {
         val gateways = GatewayRepository(InMemoryKeyValueStore())
         val profiles = NotificationProfiles(InMemoryKeyValueStore(), gateways, ProfileStore(InMemoryKeyValueStore()), backgroundScope)
         val push = PushSetup(pushApi, Keys, connection, gateways, settings, profiles, backgroundScope) { "Test" }
-        return InboxViewModel(InboxApi(pushApi, Keys), store, CronApi(client), push, connection, settings)
+        return InboxViewModel(InboxApi(pushApi, Keys), store, CronApi(client), push, connection, settings, pushLog, chatLinks)
     }
 
     private fun run(job: String, at: Long) =
@@ -143,6 +148,32 @@ class InboxViewModelTest {
     }
 
     private fun body(arg: String) = Json.parseToJsonElement(arg.substringAfter(' ')).jsonObject
+
+    @Test
+    fun aPushedMessageOpensItsBotChatAndIsMarkedRead() = runTest(dispatcher) {
+        val socket = PluginGateway(CoroutineScope(dispatcher)) { """{"ok":true,"runs":[]}""" }
+        val vm = viewModel(socket)
+        val now = 1_000L
+        pushLog.record(one.gatewayUrl.value, PushLogEntry("m1", "message", now, bot = "shisha", label = "Shisha", session = "s1", text = "hi"), now)
+        pushLog.record(one.gatewayUrl.value, PushLogEntry("m2", "message", now, text = "no bot"), now)
+        vm.bind(one)
+        runCurrent()
+        assertEquals(InboxTab.Runs, vm.state.value.tab)
+        vm.setTab(InboxTab.Messages)
+        assertEquals(InboxTab.Messages, vm.state.value.tab)
+        assertEquals(setOf("m1", "m2"), vm.state.value.messages.map { it.id }.toSet())
+
+        vm.openMessage(vm.state.value.messages.first { it.id == "m2" })
+        assertEquals(null, chatLinks.pending.value)
+        assertEquals(emptySet(), vm.state.value.readMessages)
+
+        vm.openMessage(vm.state.value.messages.first { it.id == "m1" })
+        runCurrent()
+        val link = chatLinks.pending.value
+        assertEquals("shisha", link?.bot)
+        assertEquals("s1", link?.storedSessionId)
+        assertEquals(setOf("m1"), vm.state.value.readMessages)
+    }
 
     @Test
     fun anotherGatewayStartsCleanAndTheLastOnesAnswerIsDropped() = runTest(dispatcher) {

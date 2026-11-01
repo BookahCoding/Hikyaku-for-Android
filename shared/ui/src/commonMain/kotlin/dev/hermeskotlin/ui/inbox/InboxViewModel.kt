@@ -2,6 +2,7 @@ package dev.hermeskotlin.ui.inbox
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.hermeskotlin.core.chat.ChatLinks
 import dev.hermeskotlin.core.connection.ConnectionState
 import dev.hermeskotlin.core.connection.GatewayConnection
 import dev.hermeskotlin.core.cron.CronApi
@@ -18,6 +19,8 @@ import dev.hermeskotlin.core.inbox.InboxRun
 import dev.hermeskotlin.core.inbox.InboxStore
 import dev.hermeskotlin.core.network.ApiResult
 import dev.hermeskotlin.core.push.PushApi
+import dev.hermeskotlin.core.push.PushLogEntry
+import dev.hermeskotlin.core.push.PushLogStore
 import dev.hermeskotlin.core.push.PushSetup
 import dev.hermeskotlin.core.push.PushStatus
 import dev.hermeskotlin.core.settings.SettingsStore
@@ -37,6 +40,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+
+/** What the Inbox shows: the cron runs, or the messages the agents pushed to this phone. */
+enum class InboxTab { Runs, Messages }
 
 /** What the Inbox list shows: every run, only the failed ones, one job's, or one of the user's groups. */
 sealed interface InboxFilter {
@@ -178,6 +184,10 @@ interface InboxActions {
     fun removeGroup(name: String)
     fun assignGroup(job: InboxFilter.Job, group: String?)
     fun renameJob(chip: JobChip, name: String)
+    fun setTab(tab: InboxTab)
+
+    /** Opens the chat a pushed message is from, and marks it read. */
+    fun openMessage(entry: PushLogEntry)
 
     /** The runs before the oldest one shown, from the gateway. */
     fun loadMore()
@@ -238,7 +248,16 @@ data class InboxUiState(
     val more: Boolean = false,
     val loadingMore: Boolean = false,
     val moreError: String? = null,
+    val tab: InboxTab = InboxTab.Runs,
+    /** The pushes this phone accepted from the gateway, newest first. */
+    val messages: List<PushLogEntry> = emptyList(),
+    val readMessages: Set<String> = emptySet(),
 ) {
+    val unreadMessages: Int get() = messages.count { it.id !in readMessages }
+
+    /** The name a pushed message shows by. */
+    fun nameOf(entry: PushLogEntry): String = entry.label ?: entry.bot ?: "Herald"
+
     /** Whether the follow page's controls take a change now. */
     val canEditFollowing: Boolean get() = followingLoaded && !saving
 
@@ -290,6 +309,8 @@ class InboxViewModel(
     private val push: PushSetup,
     private val connection: GatewayConnection,
     private val settings: SettingsStore,
+    private val pushLog: PushLogStore,
+    private val chatLinks: ChatLinks,
 ) : ViewModel(), InboxActions {
 
     private val _state = MutableStateFlow(InboxUiState())
@@ -321,6 +342,11 @@ class InboxViewModel(
     val places = mutableMapOf<String, ListPlace>()
 
     init {
+        viewModelScope.launch {
+            pushLog.state.collect { log ->
+                _state.update { it.copy(messages = log.entries, readMessages = log.read) }
+            }
+        }
         viewModelScope.launch {
             store.state.collect { kept ->
                 // Another gateway's Inbox (the store is shared, and moves first) is not this one's.
@@ -369,13 +395,16 @@ class InboxViewModel(
         if (!first) {
             // Nothing of the last gateway's carries over: its jobs, what it follows, the run open, the filter.
             val block = _state.value.block?.takeIf { it == InboxBlock.PushOff }
-            _state.value = InboxUiState(block = block)
+            _state.value = InboxUiState(block = block, tab = _state.value.tab)
         }
         val url = gateway.gatewayUrl.value
         val gen = generation
         bindJob = viewModelScope.launch {
             store.bind(url, Clock.System.now().epochSeconds)
+            pushLog.bind(url)
             if (gen != generation) return@launch
+            val log = pushLog.state.value
+            _state.update { it.copy(messages = log.entries, readMessages = log.read) }
             val kept = store.state.value
             _state.update { it.copy(runs = withOlder(kept.runs), read = kept.read, since = kept.since, groups = kept.groups) }
         }
@@ -413,6 +442,15 @@ class InboxViewModel(
     override fun setChipMode(mode: ChipMode) {
         _state.update { it.copy(filter = InboxFilter.All) }
         editGroups { it.copy(mode = mode) }
+    }
+
+    override fun setTab(tab: InboxTab) = _state.update { it.copy(tab = tab) }
+
+    override fun openMessage(entry: PushLogEntry) {
+        val bot = entry.bot ?: return
+        val url = gateway?.gatewayUrl?.value ?: return
+        viewModelScope.launch { pushLog.markRead(url, entry.id) }
+        chatLinks.openBot(bot, entry.label, entry.session)
     }
 
     override fun openGroups() = _state.update { it.copy(grouping = true) }
