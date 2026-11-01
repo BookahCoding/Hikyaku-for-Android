@@ -29,6 +29,7 @@ import dev.hermeskotlin.android.phone.PhoneConfirmations
 import dev.hermeskotlin.ui.settings.AppIconRestart
 import dev.hermeskotlin.ui.settings.PhoneQuestion
 import dev.hermeskotlin.ui.settings.ensureALauncherIcon
+import dev.hermeskotlin.ui.settings.flushPendingIcon
 import dev.hermeskotlin.core.chat.AppLink
 import dev.hermeskotlin.core.chat.ChatHost
 import dev.hermeskotlin.core.chat.ChatLinks
@@ -255,6 +256,8 @@ class HeraldActivity : FragmentActivity() {
         super.onStop()
         // A rotation isn't leaving the app.
         if (!isChangingConfigurations) appLock.onBackground(SystemClock.elapsedRealtime())
+        // The icon a theme pick queued goes on now that the app is out of sight (a rotation isn't leaving).
+        if (!isChangingConfigurations) runCatching { flushPendingIcon(this) }
     }
 
     /** The app theme can differ from the system's, so the window and bar icons follow the app. */

@@ -221,6 +221,7 @@ fun SettingsScreen(
         onOpenPhoneTools = { phoneToolsOpen = true },
         appIcon = appIcons.current,
         onOpenAppIcon = { appIconOpen = true },
+        onThemeIcon = appIcons::applyWhenLeaving,
         onOpenStartInstruction = { startInstructionOpen = true },
         suggestions = suggestions,
         onInstallSuggestions = viewModel::installSuggestions,
@@ -318,6 +319,8 @@ internal fun SettingsView(
     onOpenPhoneTools: () -> Unit = {},
     appIcon: AppIcon = AppIcon.Ukiyoe,
     onOpenAppIcon: () -> Unit = {},
+    /** The icon a theme pick brings, shown once the app is left. */
+    onThemeIcon: (AppIcon) -> Unit = {},
     onOpenStartInstruction: () -> Unit = {},
     /** Where the Next Prompt plugin behind Suggested replies stands on the gateway. */
     suggestions: SuggestionsPlugin = SuggestionsPlugin.Checking,
@@ -364,11 +367,17 @@ internal fun SettingsView(
                     }
                     Divider()
                     Field("Theme", detail = "Colours for buttons, links, your own messages and the backgrounds.") {
-                        ThemePicker(
-                            selected = AppTheme.named(settings.theme),
-                            pureBlack = settings.pureBlack,
-                            onSelect = { palette -> onUpdate { it.copy(theme = palette.name) } },
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ThemePicker(
+                                selected = AppTheme.named(settings.theme),
+                                pureBlack = settings.pureBlack,
+                                onSelect = { palette ->
+                                    onUpdate { it.copy(theme = palette.name) }
+                                    onThemeIcon(palette.icon())
+                                },
+                            )
+                            Text("The icon changes when you leave the app.", style = Theme[typography][bodySmall], color = Theme[colors][textTertiary])
+                        }
                     }
                     Divider()
                     NavRow(title = "App icon", detail = appIcon.label, icon = Lucide.LayoutGrid, onClick = onOpenAppIcon)

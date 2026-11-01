@@ -44,8 +44,7 @@ private class AndroidAppIcons(
     private val packages = context.packageManager
 
     // The launcher entry Android opens Herald from is the enabled alias: one lookup instead of one per icon.
-    override val current: AppIcon = packages.getLaunchIntentForPackage(context.packageName)?.component?.className
-        .let { entry -> AppIcon.entries.firstOrNull { it.aliasClass == entry } } ?: AppIcon.Ukiyoe
+    override val current: AppIcon = shownIcon(context)
 
     override suspend fun picture(icon: AppIcon, sizePx: Int): ImageBitmap? = withContext(Dispatchers.Default) {
         runCatching {
@@ -57,18 +56,13 @@ private class AndroidAppIcons(
         }.getOrNull()
     }
 
+    override fun applyWhenLeaving(icon: AppIcon) = AppIconPending.pending.set(icon)
+
     override fun apply(icon: AppIcon) {
+        // An icon chosen by hand here must not be overwritten by a theme pick still waiting for the app to be left.
+        AppIconPending.pending.clear()
         if (icon == current) return
-        // The new one is turned on before the others go off, so the launcher always has an entry for Herald.
-        val changes = listOf(icon to PackageManager.COMPONENT_ENABLED_STATE_ENABLED) +
-            AppIcon.entries.filter { it != icon }.map { it to PackageManager.COMPONENT_ENABLED_STATE_DISABLED }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packages.setComponentEnabledSettings(
-                changes.map { (it, state) -> PackageManager.ComponentEnabledSetting(component(it), state, PackageManager.DONT_KILL_APP) },
-            )
-        } else {
-            changes.forEach { (it, state) -> packages.setComponentEnabledSetting(component(it), state, PackageManager.DONT_KILL_APP) }
-        }
+        switchTo(context, icon)
         // Android closes the task the old icon opened once that alias is off, and Herald's activity is singleTask,
         // so it would reopen in that same task. Close it first, then open Herald in a new task from the new icon,
         // which Android leaves alone: a restart, not the app disappearing.
@@ -85,7 +79,43 @@ private class AndroidAppIcons(
         onChange()
     }
 
-    private fun component(icon: AppIcon) = ComponentName(context.packageName, icon.aliasClass)
+    private fun component(icon: AppIcon) = component(context, icon)
+}
+
+private fun component(context: Context, icon: AppIcon) = ComponentName(context.packageName, icon.aliasClass)
+
+/** The icon whose alias is the launcher entry Android opens Herald from: one lookup instead of one per icon. */
+private fun shownIcon(context: Context): AppIcon =
+    context.packageManager.getLaunchIntentForPackage(context.packageName)?.component?.className
+        .let { entry -> AppIcon.entries.firstOrNull { it.aliasClass == entry } } ?: AppIcon.Ukiyoe
+
+/** Turns [icon]'s alias on and all the others off, with no restart; [AndroidAppIcons.apply] adds that. */
+private fun switchTo(context: Context, icon: AppIcon) {
+    val packages = context.packageManager
+    // The new one is turned on before the others go off, so the launcher always has an entry for Herald.
+    val changes = listOf(icon to PackageManager.COMPONENT_ENABLED_STATE_ENABLED) +
+        AppIcon.entries.filter { it != icon }.map { it to PackageManager.COMPONENT_ENABLED_STATE_DISABLED }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        packages.setComponentEnabledSettings(
+            changes.map { (it, state) -> PackageManager.ComponentEnabledSetting(component(context, it), state, PackageManager.DONT_KILL_APP) },
+        )
+    } else {
+        changes.forEach { (it, state) -> packages.setComponentEnabledSetting(component(context, it), state, PackageManager.DONT_KILL_APP) }
+    }
+}
+
+/** What a theme pick asked for, process-wide so it outlives the Settings screen and is found when the app is left. */
+internal object AppIconPending {
+    val pending = PendingIcon()
+}
+
+/**
+ * Switches to the icon a theme pick queued, if any and not already shown, the way [AppIcons.apply] does but with no
+ * restart: called when the app goes to the background.
+ */
+fun flushPendingIcon(context: Context) {
+    val icon = AppIconPending.pending.take(shownIcon(context)) ?: return
+    switchTo(context, icon)
 }
 
 /**

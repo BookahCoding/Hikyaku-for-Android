@@ -38,6 +38,24 @@ interface AppIcons {
 
     /** Shows [icon] in the launcher instead of [current], and opens Herald again from it. */
     fun apply(icon: AppIcon)
+
+    /** Shows [icon] once the app is left, without restarting it; the last call wins. */
+    fun applyWhenLeaving(icon: AppIcon)
+}
+
+/** The icon a theme pick asked for, held until the app is left; the last pick wins. */
+class PendingIcon {
+    private var icon: AppIcon? = null
+
+    fun set(icon: AppIcon?) {
+        this.icon = icon
+    }
+
+    /** Forgets what is pending, for an icon chosen by hand that must not be overwritten. */
+    fun clear() = set(null)
+
+    /** The icon to switch to, or null when nothing is pending or it is the one already shown; forgets it either way. */
+    fun take(current: AppIcon): AppIcon? = icon?.takeIf { it != current }.also { icon = null }
 }
 
 /** Reads the icon again after [AppIcons.apply], so [AppIcons.current] follows. */
