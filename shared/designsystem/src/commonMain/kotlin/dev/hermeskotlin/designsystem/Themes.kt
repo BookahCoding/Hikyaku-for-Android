@@ -96,4 +96,22 @@ internal object Themes {
         lightAccent = 0x27614A, darkAccent = 0x6FBF8F,
         lightSecondary = 0x7A5200, darkSecondary = 0xD4A03E,
     )
+
+    /** "Shibuya Night": the crossing after dark: near-black violet, hot magenta. Flat, no glow. */
+    val Shibuya: AppTheme = theme(
+        "Shibuya Night",
+        light(0xF6F1FF, 0xFCF9FF, 0xEDE5FB, 0xE2D8F6, 0xF1EAFD, text = 0x1B1233, text2 = 0x2C2250, text4 = 0x5A4E7C, danger = 0xB3202B, success = 0x1F6B55, warning = 0x855608),
+        dark(0x0A0716, 0x130E26, 0x1B1535, 0x261E48, 0x070510, 0x171130, text = 0xF3EEFF, text2 = 0xDAD2F0, text4 = 0xB1A6D1, danger = 0xFF6B6B, success = 0x3EE0B0, warning = 0xFFC857),
+        lightAccent = 0xA9136A, darkAccent = 0xFF7CC0,
+        lightSecondary = 0x00677B, darkSecondary = 0x22E3FF,
+    )
+
+    /** "Akihabara": black-blue and sign-green, the electric town. */
+    val Akihabara: AppTheme = theme(
+        "Akihabara",
+        light(0xEEF2F5, 0xF8FAFC, 0xE3E9EE, 0xD6DFE6, 0xE8EDF1, text = 0x0E1A24, text2 = 0x1E2D3A, text4 = 0x48596A, danger = 0xB3202B, success = 0x0B6B3A, warning = 0x855608),
+        dark(0x060B12, 0x0C1520, 0x12202F, 0x1A2D42, 0x04080D, 0x0E1A28, text = 0xE9F4F1, text2 = 0xCFE0DC, text4 = 0x9FB4B0, danger = 0xFF6B7A, success = 0x2BE37A, warning = 0xFFC857),
+        lightAccent = 0x06703A, darkAccent = 0x2BE37A,
+        lightSecondary = 0x5A2DD0, darkSecondary = 0xA080FF,
+    )
 }

@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 
 /** Every theme with a look of its own can be read, in light, dark and pure black. */
 class ThemesTest {
-    private val themes = listOf(Themes.GreatWave, Themes.RedFuji, Themes.ThirtySixViews)
+    private val themes = listOf(Themes.GreatWave, Themes.RedFuji, Themes.ThirtySixViews, Themes.Shibuya, Themes.Akihabara)
 
     private fun contrast(a: Color, b: Color): Float {
         val la = a.luminance(); val lb = b.luminance()
@@ -53,7 +53,7 @@ class ThemesTest {
     }
 
     @Test
-    fun pureBlackIsBlackAndTheGroundsStayOrdered() {
+    fun pureBlackGroundIsBlack() {
         for (p in themes) assertEquals(Color.Black, schemes(p).getValue("black").getValue(background), p.name)
     }
 
@@ -98,6 +98,8 @@ class ThemesTest {
     @Test
     fun aSecondaryColourReadsWhereAThemeHasOne() {
         for (p in themes) for ((scheme, colors) in listOf("light" to p.light, "dark" to p.dark, "black" to p.black)) {
+            val expected = p in listOf(Themes.ThirtySixViews, Themes.Shibuya, Themes.Akihabara)
+            assertEquals(expected, colors.hasSecondary, "${p.name} $scheme hasSecondary")
             if (!colors.hasSecondary) continue
             val c = when (scheme) { "light" -> lightColors(colors); "dark" -> darkColors(colors); else -> pureBlackColors(colors) }
             val tinted = c.getValue(secondarySoft).compositeOver(c.getValue(surface))
@@ -117,5 +119,18 @@ class ThemesTest {
             assertTrue(difference(a, d) >= 25.0, "${p.name} $scheme danger vs accent ΔE ${difference(a, d)}")
             assertTrue(gap >= 15.0, "${p.name} $scheme danger vs accent hue $gap")
         }
+    }
+
+    @Test
+    fun theNeonThemesAreDarkFirstWithSaturatedAccents() {
+        for (p in listOf(Themes.Shibuya, Themes.Akihabara)) {
+            val night = darkColors(p.dark).getValue(background)
+            assertTrue(night.luminance() < 0.02f, "${p.name} night ground must be near black")
+            val a = p.dark.accent
+            val spread = max(a.red, max(a.green, a.blue)) - min(a.red, min(a.green, a.blue))
+            assertTrue(spread > 0.5f, "${p.name} accent should be saturated")
+        }
+        assertTrue(Themes.Shibuya.dark.hasSecondary && Themes.Akihabara.dark.hasSecondary, "the neon themes carry a second colour")
+        assertTrue(Themes.ThirtySixViews.dark.hasSecondary, "Thirty-six Views carries its ochre")
     }
 }

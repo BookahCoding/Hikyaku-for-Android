@@ -103,7 +103,7 @@ class AppTheme internal constructor(
             )
         }
 
-        val all: List<AppTheme> by lazy { listOf(Blue, Violet, Green, Orange, Pink, Teal, Ukiyoe, Themes.GreatWave, Themes.RedFuji, Themes.ThirtySixViews) }
+        val all: List<AppTheme> by lazy { listOf(Blue, Violet, Green, Orange, Pink, Teal, Ukiyoe, Themes.GreatWave, Themes.RedFuji, Themes.ThirtySixViews, Themes.Shibuya, Themes.Akihabara) }
 
         /** The palette called [name], or [Blue] for a name this version doesn't know. */
         fun named(name: String?): AppTheme = all.firstOrNull { it.name == name } ?: Blue
