@@ -53,6 +53,10 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.coroutines.test.TestScope
+import dev.hermeskotlin.core.models.ModelOption
+import kotlin.test.assertFalse
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -98,7 +102,7 @@ class ChatViewModelTest {
     }
 
     /** A gateway socket that says it's ready and answers every call with an empty result. */
-    private class ReadyGateway : RpcTransport {
+    private class ReadyGateway(private val log: MutableList<String> = mutableListOf()) : RpcTransport {
         private val inbound = Channel<String>(Channel.UNLIMITED).apply {
             trySend("""{"jsonrpc":"2.0","method":"event","params":{"type":"gateway.ready","payload":{}}}""")
         }
@@ -106,6 +110,7 @@ class ChatViewModelTest {
         override val incoming: Flow<String> = inbound.receiveAsFlow()
 
         override suspend fun send(text: String) {
+            log += text
             val id = Json.parseToJsonElement(text).jsonObject["id"] ?: return
             inbound.send("""{"jsonrpc":"2.0","id":$id,"result":{}}""")
         }
@@ -117,6 +122,9 @@ class ChatViewModelTest {
 
     /** The connection of the last [viewModel]; [GatewayConnection.start] connects it to a [ReadyGateway]. */
     private lateinit var connection: GatewayConnection
+
+    /** Every call the last [viewModel]'s gateway received. */
+    private val rpcLog = mutableListOf<String>()
 
     private fun viewModel(drafts: DraftStore = DraftStore(InMemoryKeyValueStore()), fileReads: MutableList<Pair<String, String?>>? = null): Pair<ChatViewModel, ChatHost> {
         val cookies = PersistentCookiesStorage(InMemoryKeyValueStore())
@@ -132,7 +140,7 @@ class ChatViewModelTest {
             else respond("{}", HttpStatusCode.OK, json)
         }
         val client = createHttpClient(MockEngine(engine), cookies)
-        connection = GatewayConnection(AuthApi(client, cookies), { _, _ -> ReadyGateway() }, scope)
+        connection = GatewayConnection(AuthApi(client, cookies), { _, _ -> ReadyGateway(rpcLog) }, scope)
         val sessions = SessionsApi(client)
         val chatHost = ChatHost(connection, sessions, scope)
         val vm = ChatViewModel(
@@ -207,7 +215,7 @@ class ChatViewModelTest {
         val (vm, _) = viewModel()
         val requests = mutableListOf<ChatRequest>()
         val collecting = launch { vm.requests.collect { requests += it } }
-        vm.open(ChatTarget(gateway, "b1", "Bot Chat", profile = null, isBotChat = true))
+        vm.open(ChatTarget(gateway, "b1", "Bot Chat", profile = null, botChatProfile = "default"))
         runCurrent()
 
         vm.composer.setTextAndPlaceCursorAtEnd("/title Renamed")
@@ -224,6 +232,41 @@ class ChatViewModelTest {
         assertTrue(requests.isEmpty())
         assertEquals("/compress", vm.state.value.messages.filterIsInstance<ChatMessage.Command>().last().command)
         collecting.cancel()
+    }
+
+    private suspend fun TestScope.pickModelIn(target: ChatTarget): List<String> {
+        val (vm, _) = viewModel()
+        connection.start(gateway.gatewayUrl)
+        vm.connectionState.first { it is ConnectionState.Connected }
+        vm.open(target)
+        runCurrent()
+        rpcLog.clear()
+        vm.selectModel(ModelOption(id = "m1", provider = "p1"))
+        runCurrent()
+        return rpcLog.filter { "profiles.configure" in it }
+    }
+
+    @Test
+    fun aModelPickedInALookedUpBotChatChangesThatProfilesModel() = runTest(dispatcher) {
+        // The launch profile isn't "default": the target's profile is null, the looked-up name is not.
+        val calls = pickModelIn(ChatTarget(gateway, "b1", "Bot Chat", profile = null, botChatProfile = "work"))
+        assertEquals(1, calls.size, calls.toString())
+        assertEquals("work", Json.parseToJsonElement(calls.single()).jsonObject["params"]!!.jsonObject["name"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun aModelPickedInTheDefaultProfilesBotChatChangesTheDefaultProfile() = runTest(dispatcher) {
+        val calls = pickModelIn(ChatTarget(gateway, "b1", "Bot Chat", profile = null, botChatProfile = "default"))
+        assertEquals(1, calls.size, calls.toString())
+        assertEquals("default", Json.parseToJsonElement(calls.single()).jsonObject["params"]!!.jsonObject["name"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun aLookedUpBotChatGetsTheBotChatMenuModeAndAMadeBotToo() {
+        // ChatMenu hides pin, rename, archive and delete when App passes keepsBotChatRules as botChat.
+        assertTrue(ChatTarget(gateway, "b1", "Bot Chat", botChatProfile = "default").keepsBotChatRules)
+        assertTrue(ChatTarget(gateway, "b1", "Scribe", profile = "scribe", bot = scribe).keepsBotChatRules)
+        assertFalse(ChatTarget(gateway, "s1", "Notes", profile = "froebel").keepsBotChatRules)
     }
 
     @Test

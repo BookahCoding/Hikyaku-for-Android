@@ -539,7 +539,7 @@ class AppViewModelTest {
         assertEquals("froebel", chat.target.profile)
         assertNull(chat.target.bot)
         assertEquals(reply, chat.target.draft)
-        assertTrue(chat.target.isBotChat)
+        assertEquals("froebel", chat.target.botChatProfile)
         assertEquals("froebel", app.chatsProfile.value)
     }
 
@@ -558,7 +558,7 @@ class AppViewModelTest {
         assertNull(chat.target.profile)
         assertNull(chat.target.bot)
         assertEquals(reply, chat.target.draft)
-        assertTrue(chat.target.isBotChat)
+        assertEquals("default", chat.target.botChatProfile)
         assertEquals(listOf("default"), backend.lookups)
         assertTrue(backend.starts.isEmpty())
     }
@@ -567,13 +567,14 @@ class AppViewModelTest {
     fun aLookedUpBotChatReopensWithItsProtectionsOnRelaunch() = runTest {
         gateways.save(home)
         signedIn(home)
-        lastChats.set(home.gatewayUrl, LastChat("tip", "Bot Chat", botChat = true))
+        lastChats.set(home.gatewayUrl, LastChat("tip", "Bot Chat", botChatProfile = "default"))
 
         val chat = viewModel().awaitChat(home)
 
         assertEquals("tip", chat.target.storedSessionId)
         assertNull(chat.target.bot)
-        assertTrue(chat.target.isBotChat)
+        assertEquals("default", chat.target.botChatProfile)
+        assertTrue(chat.target.keepsBotChatRules)
     }
 
     @Test

@@ -14,7 +14,6 @@ import dev.hermeskotlin.core.chat.ChatMessage
 import dev.hermeskotlin.core.chat.ChatSession
 import dev.hermeskotlin.core.threads.ChatThread
 import dev.hermeskotlin.core.threads.ThreadsRepository
-import dev.hermeskotlin.core.bots.Bot
 import dev.hermeskotlin.core.bots.BotsApi
 import dev.hermeskotlin.core.chat.ChatState
 import dev.hermeskotlin.core.chat.ComposeDraft
@@ -159,12 +158,15 @@ data class ChatTarget(
      */
     val preserveLastChat: Boolean = false,
     /**
-     * This is a profile's Bot Chat that was found by lookup, though the profile isn't a bot the user made
-     * (so [bot] is null). It gets the Bot Chat protections (no rename, `/new` compresses, no pinned model) and
-     * nothing else: it never opens, follows or starts a Bot Chat.
+     * Set when this is a profile's Bot Chat found by lookup, though the profile isn't a bot the user made
+     * (so [bot] is null): the profile's real name, which [profile] can't give (null means the launch profile).
+     * It gets the Bot Chat protections (no rename, delete, archive or pin, `/new` compresses, no pinned model)
+     * and nothing else: it never opens, follows or starts a Bot Chat.
      */
-    val isBotChat: Boolean = false,
+    val botChatProfile: String? = null,
 ) {
+    val isBotChat: Boolean get() = botChatProfile != null
+
     /** Whether this is some bot's permanent chat, a made bot's or a looked-up one. */
     val keepsBotChatRules: Boolean get() = bot != null || isBotChat
 
@@ -371,7 +373,7 @@ class ChatViewModel(
                 .map { chat ->
                     chat.storedSessionId?.takeIf { chat.hasConversation }?.let { id ->
                         val bot = target?.bot
-                        LastChat(id, chat.title, bot = bot?.name, botLabel = bot?.label, botChat = target?.isBotChat == true)
+                        LastChat(id, chat.title, bot = bot?.name, botLabel = bot?.label, botChatProfile = target?.botChatProfile)
                     }
                 }
                 // Distinct before dropping nulls, so returning to the same chat after a new one saves it again.
@@ -673,10 +675,7 @@ class ChatViewModel(
         // chat alone, which would leave the bot and its chat running different models (#129460).
         target?.bot?.let { bot -> return setBotModel(chat, bot, model, confirmed) }
         // A looked-up Bot Chat of a profile that isn't a made bot: the profile's model is changed, not the chat's.
-        target?.takeIf { it.isBotChat }?.let { open ->
-            val name = open.profile ?: Bot.DEFAULT
-            return setBotModel(chat, BotIdentity(name, open.title ?: name), model, confirmed)
-        }
+        target?.botChatProfile?.let { name -> return setBotModel(chat, BotIdentity(name, name), model, confirmed) }
         viewModelScope.launch {
             val result = chat.setModel(model.id, model.provider, confirmed)
             if (result is ModelSwitch.NeedsConfirmation) _picker.update { it.copy(confirm = PendingSwitch(model, result.message)) }
@@ -854,7 +853,7 @@ class ChatViewModel(
         val repo = threads ?: return null
         val open = target ?: return null
         val scope = repo.scope.value ?: return null
-        if (open.bot != null || scope.url != open.gateway.gatewayUrl || scope.profile != open.profile) return null
+        if (open.keepsBotChatRules || scope.url != open.gateway.gatewayUrl || scope.profile != open.profile) return null
         return repo.threadFor(session.value?.state?.value?.storedSessionId ?: open.storedSessionId)
     }
 

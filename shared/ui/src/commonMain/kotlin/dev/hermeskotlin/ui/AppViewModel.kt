@@ -298,7 +298,7 @@ class AppViewModel(
                 _route.value = when {
                     draft == null -> home(gateway)
                     existing != null -> Route.Chat(
-                        ChatTarget(gateway, existing, label?.takeIf { it.isNotBlank() } ?: BotsApi.BOT_CHAT_TITLE, profile = profile, draft = draft, isBotChat = true),
+                        ChatTarget(gateway, existing, label?.takeIf { it.isNotBlank() } ?: BotsApi.BOT_CHAT_TITLE, profile = profile, draft = draft, botChatProfile = bot),
                     )
                     else -> Route.Chat(newChatTarget(gateway, profile).copy(draft = draft))
                 }
@@ -438,7 +438,7 @@ class AppViewModel(
             bot != null && known?.contains(bot) == true ->
                 botChatTarget(gateway, last.sessionId, bot, last.botLabel ?: bot).also(::followBotChat)
             bot != null -> newChatTarget(gateway, profile).copy(preserveLastChat = known == null)
-            else -> ChatTarget(gateway, last.sessionId, last.title, profile = profile, isBotChat = last.botChat)
+            else -> ChatTarget(gateway, last.sessionId, last.title, profile = profile, botChatProfile = last.botChatProfile)
         }
         return Route.Chat(target)
     }
