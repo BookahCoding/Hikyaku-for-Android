@@ -15,6 +15,7 @@ import dev.hermeskotlin.core.sessions.SessionsApi
 import dev.hermeskotlin.core.sessions.putStartInstruction
 import dev.hermeskotlin.core.slash.SlashCommand
 import dev.hermeskotlin.core.slash.SlashResult
+import dev.hermeskotlin.core.slash.slashFailureHint
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -665,7 +666,7 @@ class ChatSession(
         }
         return when (result) {
             is SlashResult.Output -> {
-                val text = result.text.ifBlank { "Done." }
+                val text = slashFailureHint(command.name, result.text) ?: result.text.ifBlank { "Done." }
                 finishCommand(key, result.warning?.let { "$it\n\n$text" } ?: text)
                 null
             }

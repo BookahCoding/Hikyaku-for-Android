@@ -20,6 +20,8 @@ import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.push.PushCrypto
 import dev.hermeskotlin.core.push.PushDirection
 import dev.hermeskotlin.core.push.PushGuard
+import dev.hermeskotlin.core.push.PushLogEntry
+import dev.hermeskotlin.core.push.PushLogStore
 import dev.hermeskotlin.core.push.PushMessage
 import dev.hermeskotlin.core.push.PushRules
 import dev.hermeskotlin.core.settings.SettingsStore
@@ -54,6 +56,7 @@ class PushListener(
     private val gateways: GatewayRepository,
     private val phoneTools: PhoneToolsBridge,
     private val inbox: InboxStore,
+    private val pushLog: PushLogStore,
     private val profiles: ProfileGate,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -106,6 +109,18 @@ class PushListener(
             // backlog read after a restart) is past its time and doesn't ring.
             PushMessage.PHONE_CALL -> phoneTools.ring(message)
             PushMessage.CRON_RUN -> showCronRun(message, gatewayUrl ?: return)
+        }
+        // Last, so a slow or failing write can't hold back or lose the notification or the ring.
+        gatewayUrl?.let { url ->
+            try {
+                PushLogEntry.from(message)
+                    ?.takeIf { entry -> entry.bot.let { name -> name == null || profiles.allows(url, name) } }
+                    ?.let { entry -> pushLog.record(url, entry) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "push log write failed: ${e::class.simpleName}")
+            }
         }
     }
 

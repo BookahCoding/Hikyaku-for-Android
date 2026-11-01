@@ -7,7 +7,9 @@ import dev.hermeskotlin.core.inbox.Following
 import dev.hermeskotlin.core.inbox.InboxGroups
 import dev.hermeskotlin.core.inbox.InboxLayout
 import dev.hermeskotlin.core.inbox.InboxRun
+import dev.hermeskotlin.core.push.PushLogEntry
 import dev.hermeskotlin.ui.inbox.InboxActions
+import dev.hermeskotlin.ui.inbox.InboxTab
 import dev.hermeskotlin.ui.inbox.InboxFilter
 import dev.hermeskotlin.ui.inbox.InboxUiState
 import dev.hermeskotlin.ui.inbox.JobChip
@@ -132,6 +134,7 @@ internal object InboxSamples {
 
 internal object PreviewInboxActions : InboxActions {
     override fun open(run: InboxRun) {}
+    override fun reply(run: InboxRun) {}
     override fun closeRun() {}
     override fun markAllRead() {}
     override fun setFilter(filter: InboxFilter) {}
@@ -149,5 +152,7 @@ internal object PreviewInboxActions : InboxActions {
     override fun removeGroup(name: String) {}
     override fun assignGroup(job: InboxFilter.Job, group: String?) {}
     override fun renameJob(chip: JobChip, name: String) {}
+    override fun setTab(tab: InboxTab) {}
+    override fun openMessage(entry: PushLogEntry) {}
     override fun loadMore() {}
 }

@@ -49,7 +49,7 @@ val notifyModule = module {
     single { RoomNotifier(get(), get(), get(), get(), get(), get(), get<ProfileGate>()) }
     single { PushStore(androidContext()) } bind PushKeys::class
     single { InboxApi(get(), get(), get<NotificationProfiles>()) }
-    single { PushListener(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get<ProfileGate>()) }
+    single { PushListener(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get<ProfileGate>()) }
     single { PushSetup(get(), get(), get(), get(), get(), get<NotificationProfiles>(), get(), deviceName = { Build.MODEL ?: "Android phone" }) }
     single { PhoneConfirmations(androidContext()) }
     single { Geofences(androidContext(), get(), get()) } bind WatchedPlaces::class
