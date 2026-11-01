@@ -38,6 +38,7 @@ import dev.hermeskotlin.core.profiles.ProfileStore
 import dev.hermeskotlin.core.push.NtfyClient
 import dev.hermeskotlin.core.inbox.InboxLinks
 import dev.hermeskotlin.core.inbox.InboxStore
+import dev.hermeskotlin.core.push.PushLogStore
 import dev.hermeskotlin.core.push.NotificationProfiles
 import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.push.PushApi
@@ -158,5 +159,6 @@ val coreModule = module {
     // An update of the plugin never reaches into a profile that isn't on that list.
     single { PushApi(get(), mayUpdateCopy = { profile -> get<NotificationProfiles>().allowsHere(profile) }) }
     single { InboxStore(get(), gate = get<NotificationProfiles>()) }
+    single { PushLogStore(get()) }
     single { InboxLinks() }
 }

@@ -21,6 +21,7 @@ import dev.hermeskotlin.core.gateway.AccessTokens
 import dev.hermeskotlin.core.gateway.GatewayList
 import dev.hermeskotlin.core.gateway.GatewayRepository
 import dev.hermeskotlin.core.inbox.InboxStore
+import dev.hermeskotlin.core.push.PushLogStore
 import dev.hermeskotlin.core.gateway.SavedGateway
 import dev.hermeskotlin.core.profiles.ProfileStore
 import dev.hermeskotlin.core.push.PushSetup
@@ -74,6 +75,8 @@ class AppViewModel(
     private val inbox: InboxStore? = null,
     /** Which profiles the user made into bots, so a remembered chat is reopened as one only then. */
     private val botOptIns: BotOptInStore? = null,
+    /** Each gateway's log of accepted pushes, which goes with the gateway. */
+    private val pushLog: PushLogStore? = null,
 ) : ViewModel() {
 
     private val _route = MutableStateFlow<Route>(Route.Loading)
@@ -205,6 +208,7 @@ class AppViewModel(
             cache?.forgetGateway(gateway.gatewayUrl)
             gateways.remove(gateway.url)
             inbox?.forget(gateway.gatewayUrl.value)
+            pushLog?.forget(gateway.gatewayUrl.value)
             forgetUnusedAccessTokens()
             sessionsChanged.update { it + 1 }
             if (wasCurrent) {

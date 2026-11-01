@@ -20,6 +20,8 @@ import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.push.PushCrypto
 import dev.hermeskotlin.core.push.PushDirection
 import dev.hermeskotlin.core.push.PushGuard
+import dev.hermeskotlin.core.push.PushLogEntry
+import dev.hermeskotlin.core.push.PushLogStore
 import dev.hermeskotlin.core.push.PushMessage
 import dev.hermeskotlin.core.push.PushRules
 import dev.hermeskotlin.core.settings.SettingsStore
@@ -54,6 +56,7 @@ class PushListener(
     private val gateways: GatewayRepository,
     private val phoneTools: PhoneToolsBridge,
     private val inbox: InboxStore,
+    private val pushLog: PushLogStore,
     private val profiles: ProfileGate,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -97,6 +100,11 @@ class PushListener(
         if (event.time > 0) store.sinceSeconds = event.time
         if (message == null || !guard.accept(message)) return
         store.seen = guard.snapshot()
+        gatewayUrl?.let { url ->
+            PushLogEntry.from(message)
+                ?.takeIf { entry -> entry.bot.let { name -> name == null || profiles.allows(url, name) } }
+                ?.let { entry -> pushLog.record(url, entry) }
+        }
         when (message.type) {
             PushMessage.BOT_MESSAGE -> showBotMessage(message, gatewayUrl)
             PushMessage.PING -> notifications.postPushTest()
