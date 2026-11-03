@@ -529,10 +529,10 @@ class PushApi(
         const val PLUGIN_REPO = "https://github.com/BookahCoding/hikyaku-push"
 
         /** The plugin commit this Herald was built and reviewed against. */
-        const val PLUGIN_REF = "8b86f0631ce0fad3400a179c6401479284a7be33"
+        const val PLUGIN_REF = "07309682f8f637e9ec44467259976ceeac3d96fa"
 
         /** The version at [PLUGIN_REF]: an older copy on the gateway is offered this as an update. */
-        const val PLUGIN_VERSION = "0.7.0"
+        const val PLUGIN_VERSION = "0.8.0"
 
         /** The oldest plugin this Herald can talk to at all, which is how far back "turn everything off" still reaches. */
         const val MIN_PLUGIN_VERSION = "0.1.1"

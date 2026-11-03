@@ -40,4 +40,17 @@ class PushRulesTest {
         assertEquals("herald-profile-test", PushRules.PROFILE_TEST_SESSION)
         assertTrue(Regex("^[A-Za-z0-9_.:-]{1,128}$").matches(PushRules.PROFILE_TEST_SESSION), "it must pass the listener's session check")
     }
+
+    @Test
+    fun anApprovalIsShownOnlyWhileTheAppCannotShowItItself() {
+        assertTrue(PushRules.showsApproval(connected = false, ageSeconds = 5))
+        // Connected: the app has its own approval notification and card.
+        assertFalse(PushRules.showsApproval(connected = true, ageSeconds = 5))
+    }
+
+    @Test
+    fun anApprovalThatHasMostLikelyTimedOutIsNotShown() {
+        assertTrue(PushRules.showsApproval(connected = false, ageSeconds = PushRules.APPROVAL_MAX_AGE_SECONDS))
+        assertFalse(PushRules.showsApproval(connected = false, ageSeconds = PushRules.APPROVAL_MAX_AGE_SECONDS + 1))
+    }
 }
