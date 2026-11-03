@@ -19,6 +19,11 @@
 - Baseline before any change: `253 passed, 3 skipped`. The suite must pass after every task.
 - Test command (needed on this machine for the temp dir): `.venv/Scripts/python -m pytest -q --basetemp=.pytest-tmp`
 - Limits: command at most 160 characters, description at most 240; dedupe window 60 s; post timeout 10 s (connect 5 s).
+- **Verified against the Hermes v0.22.6 source on the gateway (read-only, 2026-11-03), not assumed:**
+  - `pre_approval_request` fires on the normal approval paths, not only for plugin transports: the gateway wait (`tools/approval_gateway_wait.py`, used by app and Telegram chats, surface `gateway`), the CLI prompt (`tools/approval.py`, surface `cli`), file-write guards, and the smart-approval guardian (`tools/approval_smart.py`, surface `smart`).
+  - **`smart` fires with no human involved** (an auxiliary model decides, and `post_approval_response` follows at once with `decided_by: aux_llm`), so it must not produce a push. A coalesced follower of an already-pending approval fires with `coalesced=True` and must not push either. Only surfaces `gateway` and `cli` push.
+  - Delivery is `_delivery_manager()` = the plugin manager of the **active profile/home**, so only that profile's plugin instance is called. Hooks are skipped entirely in "safe worker" processes. The hook payload carries `command`, `description`, `pattern_key`, `pattern_keys`, `session_key`, `surface` (plus `turn_id`, `tool_call_id`, maybe `session_id`).
+  - **Not verified (state it at release):** approvals raised by cron runs, which may happen in a process where the hook is not registered. The live check in the release step covers an app chat only.
 - End every commit message with a blank line and these two trailer lines:
   `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`
   `Claude-Session: https://claude.ai/code/session_01T1LnxJgKG7J6HiizazTYPP`
@@ -28,7 +33,7 @@
 1. **The hook must never slow or break the agent.** A slow ntfy server or an exception in sealing/posting must not reach the caller; the handler returns before any network call (Task 1).
 2. **Secrets in the command.** Redaction is applied; if the host's redaction is unavailable the command is omitted and only the description goes (Task 1).
 3. **A profile a phone is not allowed must not be pushed**, and a bot with "Send notifications" off sends nothing; a phone with no list hears every profile, as for `bot_message` (Task 1).
-4. **Duplicate hook calls** (several plugin managers in one process) produce one push; the same text after 60 s produces another (Task 1).
+4. **False alarms and duplicates.** An automatic (`smart`) approval and a `coalesced` follower produce no push; the same request seen by two notifiers produces one push, labelled with the session's own profile; the same text after 60 s produces another (Task 1).
 5. **Old Hermes**: a Hermes without `register_hook`, or without the hook name, must not stop the plugin loading (Task 2). Also: worst-case escaped text still fits one 4096-byte push (Task 1).
 
 ## File Structure
@@ -53,8 +58,8 @@
 - Test: `tests/test_approvals.py`
 
 **Interfaces:**
-- Consumes: `push.message(kind, **fields) -> dict`, `push.envelope_for(device, payload, sig_key) -> str`, `push.post(device, body, client=None) -> str`, `push.OK`, `Store.devices()`, `Store.allowlist().allows(device_id, profile) -> bool`, `Store.identity()` (third item is the signing key), `watcher.profile_enabled(home) -> bool`, `watcher.bot_label(home, profile) -> str`.
-- Produces: constants `MAX_COMMAND = 160`, `MAX_DESCRIPTION = 240`, `DEDUPE_SECONDS = 60`; `ApprovalNotifier(store, profile, home, *, now=time.time, post=push.post, seal=push.envelope_for, redact=host_redact, enabled=profile_enabled, spawn=start_thread)` with `on_request(**kwargs) -> None` (the hook callback; never raises).
+- Consumes: `push.message(kind, **fields) -> dict`, `push.envelope_for(device, payload, sig_key) -> str`, `push.post(device, body, client=None) -> str`, `push.OK`, `Store.devices()`, `Store.allowlist().allows(device_id, profile) -> bool`, `Store.identity()` (third item is the signing key), `watcher.profile_enabled(home) -> bool`, `watcher.bot_label(home, profile) -> str`, `phone._profile_holding_session(session_id, root) -> str` (the profile whose `state.db` holds the session, else `""`).
+- Produces: constants `MAX_COMMAND = 160`, `MAX_DESCRIPTION = 240`, `DEDUPE_SECONDS = 60`, `SURFACES = ("gateway", "cli")`; module-level `_recent: Dict[str, float]` (the shared de-duplication map); `ApprovalNotifier(store, profile, home, root, *, now=time.time, post=push.post, seal=push.envelope_for, redact=host_redact, enabled=profile_enabled, spawn=start_thread, resolve=None)` with `on_request(**kwargs) -> None` (the hook callback; never raises). `resolve(session_key) -> str` defaults to `phone._profile_holding_session(session_key, root)`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -62,9 +67,16 @@ Create `tests/test_approvals.py`:
 ```python
 import pytest
 
-from herald_push import push
+from herald_push import approvals, push
 from herald_push.approvals import DEDUPE_SECONDS, MAX_COMMAND, MAX_DESCRIPTION, ApprovalNotifier
 from herald_push.store import Store
+
+
+@pytest.fixture(autouse=True)
+def fresh_dedupe_map():
+    approvals._recent.clear()
+    yield
+    approvals._recent.clear()
 
 
 class Sent:
@@ -81,16 +93,17 @@ class Sent:
 
 
 def build(tmp_path, clock, make_device, *, redact=lambda text: text.replace("SECRET", "***"), enabled=True,
-          spawn=None, phones=1, profile="default", real_seal=False):
-    store = Store(tmp_path / "data")
+          spawn=None, phones=1, profile="default", real_seal=False, resolve=lambda session_key: "", sent=None,
+          store=None):
+    store = store or Store(tmp_path / "data")
     devices = [make_device() for _ in range(phones)]
     for device in devices:
         store.upsert(device)
-    sent = Sent()
+    sent = sent or Sent()
     notifier = ApprovalNotifier(
-        store, profile, tmp_path / "home", now=clock, post=sent.post,
+        store, profile, tmp_path / "home", tmp_path / "hermes", now=clock, post=sent.post,
         seal=push.envelope_for if real_seal else sent.seal, redact=redact,
-        enabled=lambda home: enabled, spawn=spawn or (lambda fn: fn()))
+        enabled=lambda home: enabled, spawn=spawn or (lambda fn: fn()), resolve=resolve)
     return store, devices, sent, notifier
 
 
@@ -112,6 +125,25 @@ def test_an_approval_request_reaches_the_phone(tmp_path, clock, make_device):
     assert len(payload["request_id"]) == 12 and "choices" not in payload and "expires" not in payload
 
 
+def test_the_cli_surface_pushes_too(tmp_path, clock, make_device):
+    _, _, sent, notifier = build(tmp_path, clock, make_device)
+    ask(notifier, surface="cli")
+    assert len(sent.posts) == 1
+
+
+@pytest.mark.parametrize("surface", ["smart", "transport:other", "mcp-elicitation/x", "vault-payment", "", None])
+def test_surfaces_where_no_person_is_asked_here_push_nothing(tmp_path, clock, make_device, surface):
+    _, _, sent, notifier = build(tmp_path, clock, make_device)
+    ask(notifier, surface=surface)
+    assert sent.posts == []
+
+
+def test_a_coalesced_follower_pushes_nothing(tmp_path, clock, make_device):
+    _, _, sent, notifier = build(tmp_path, clock, make_device)
+    ask(notifier, coalesced=True)
+    assert sent.posts == []
+
+
 def test_only_phones_allowed_that_profile_are_told(tmp_path, clock, make_device):
     store, (allowed, other), sent, notifier = build(tmp_path, clock, make_device, phones=2)
     store.set_allowed_profiles(allowed.device_id, ["default"])
@@ -125,6 +157,32 @@ def test_a_phone_with_no_list_hears_every_profile(tmp_path, clock, make_device):
     ask(notifier)
     assert [device_id for device_id, _ in sent.posts] == [phone.device_id]
     assert sent.payloads[0][1]["bot"] == "side"
+
+
+def test_the_sessions_own_profile_decides_who_is_told(tmp_path, clock, make_device):
+    """The hook ran in one profile's plugin, but the session belongs to another: the allowlist and the label
+    follow the session."""
+    store, (phone_default, phone_other), sent, notifier = build(
+        tmp_path, clock, make_device, phones=2, profile="default", resolve=lambda session_key: "other")
+    store.set_allowed_profiles(phone_default.device_id, ["default"])
+    store.set_allowed_profiles(phone_other.device_id, ["other"])
+    ask(notifier)
+    assert [device_id for device_id, _ in sent.posts] == [phone_other.device_id]
+    assert sent.payloads[0][1]["bot"] == "other"
+
+
+def test_a_session_that_belongs_to_no_profile_uses_the_plugins_own(tmp_path, clock, make_device):
+    _, _, sent, notifier = build(tmp_path, clock, make_device, profile="side", resolve=lambda session_key: "")
+    ask(notifier)
+    assert sent.payloads[0][1]["bot"] == "side"
+
+
+def test_two_notifiers_that_see_the_same_request_push_once(tmp_path, clock, make_device):
+    store, devices, sent, first = build(tmp_path, clock, make_device, profile="default")
+    _, _, _, second = build(tmp_path, clock, make_device, profile="side", sent=sent, store=store, phones=0)
+    ask(first)
+    ask(second)
+    assert len(sent.posts) == 1
 
 
 def test_the_secret_in_a_command_is_redacted(tmp_path, clock, make_device):
@@ -206,11 +264,20 @@ def test_a_failing_seal_never_reaches_the_agent(tmp_path, clock, make_device):
     ask(notifier)  # must not raise
 
 
+def test_a_failing_session_lookup_falls_back_and_never_raises(tmp_path, clock, make_device):
+    def broken(session_key):
+        raise OSError("state.db is locked")
+
+    _, _, sent, notifier = build(tmp_path, clock, make_device, resolve=broken)
+    ask(notifier)
+    assert len(sent.posts) == 1 and sent.payloads[0][1]["bot"] == "default"
+
+
 def test_a_hook_call_with_odd_arguments_never_raises(tmp_path, clock, make_device):
     _, _, sent, notifier = build(tmp_path, clock, make_device)
     notifier.on_request()
-    notifier.on_request(command=None, description=None, session_key=None, pattern_key=None)
-    notifier.on_request(command=5, description=["x"], extra="ignored")
+    notifier.on_request(command=None, description=None, session_key=None, pattern_key=None, surface="gateway")
+    notifier.on_request(command=5, description=["x"], surface="gateway", extra="ignored")
 
 
 def test_the_worst_case_escaped_text_still_fits_one_push(tmp_path, clock, make_device):
@@ -223,7 +290,7 @@ def test_the_worst_case_escaped_text_still_fits_one_push(tmp_path, clock, make_d
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `.venv/Scripts/python -m pytest tests/test_approvals.py -q --basetemp=.pytest-tmp`
-Expected: FAIL at collection (`No module named 'herald_push.approvals'`).
+Expected: FAIL at collection (`cannot import name 'approvals'`).
 
 - [ ] **Step 3: Make the escaped fields shrinkable**
 
@@ -242,18 +309,21 @@ Create `herald_push/approvals.py`:
 ```python
 """Tells registered phones that a bot is waiting for the user to approve a command.
 
-Hermes calls the ``pre_approval_request`` observer in the process where the approval happens (the dashboard for an
-app chat, the messaging gateway for a Telegram one). The observer must never slow or break the agent: it only
-filters, redacts and de-duplicates, then hands the sealed push to a daemon thread. Nothing can be answered from the
-notification; the phone opens the chat, where the user approves as usual. There is no outbox: this may run in a
-process that isn't the watcher's leader, and an approval is only useful for minutes.
+Hermes calls the ``pre_approval_request`` observer, through the plugin manager of the active profile, in the process
+where the approval happens (the dashboard for an app chat, the messaging gateway for a Telegram one). The observer
+must never slow or break the agent: it only filters, redacts and de-duplicates, then hands the sealed push to a
+daemon thread. Nothing can be answered from the notification; the phone opens the chat, where the user approves as
+usual. There is no outbox: this may run in a process that isn't the watcher's leader, and an approval is only
+useful for minutes.
+
+Only surfaces where a person is asked push: ``gateway`` and ``cli``. The smart-approval guardian (``smart``) fires
+the same hook while an auxiliary model decides, and a ``coalesced`` follower repeats a request already pending.
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
-import re
 import threading
 import time
 from pathlib import Path
@@ -262,6 +332,7 @@ from typing import Callable, Dict, Optional
 import httpx
 
 from . import push
+from .phone import _profile_holding_session
 from .store import PROFILE_RE, Store
 from .watcher import bot_label, profile_enabled
 
@@ -270,8 +341,13 @@ log = logging.getLogger(__name__)
 MAX_COMMAND = 160
 MAX_DESCRIPTION = 240
 DEDUPE_SECONDS = 60
+SURFACES = ("gateway", "cli")
 HOOK = "pre_approval_request"
 _TIMEOUT = httpx.Timeout(10.0, connect=5.0)
+
+# One map for the whole process, keyed without the profile: several plugin instances may see one request.
+_recent: Dict[str, float] = {}
+_recent_lock = threading.Lock()
 
 
 def host_redact(text: str) -> str:
@@ -289,22 +365,33 @@ def clip(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
+def seen_recently(key: str, now: float) -> bool:
+    with _recent_lock:
+        for old in [k for k, t in _recent.items() if now - t >= DEDUPE_SECONDS]:
+            del _recent[old]
+        if key in _recent:
+            return True
+        _recent[key] = now
+    return False
+
+
 class ApprovalNotifier:
-    def __init__(self, store: Store, profile: str, home: Path, *, now: Callable[[], float] = time.time,
+    def __init__(self, store: Store, profile: str, home: Path, root: Path, *, now: Callable[[], float] = time.time,
                  post=push.post, seal=push.envelope_for, redact: Callable[[str], str] = host_redact,
                  enabled: Callable[[Path], bool] = profile_enabled,
-                 spawn: Callable[[Callable[[], None]], None] = start_thread):
+                 spawn: Callable[[Callable[[], None]], None] = start_thread,
+                 resolve: Optional[Callable[[str], str]] = None):
         self.store = store
         self.profile = profile
         self.home = home
+        self.root = Path(root)
         self.now = now
         self.post = post
         self.seal = seal
         self.redact = redact
         self.enabled = enabled
         self.spawn = spawn
-        self._lock = threading.Lock()
-        self._recent: Dict[str, float] = {}
+        self.resolve = resolve if resolve is not None else (lambda session_key: _profile_holding_session(session_key, self.root))
 
     def on_request(self, **kwargs) -> None:
         """The hook callback. Never raises: an exception here would land in the agent's approval path."""
@@ -313,25 +400,38 @@ class ApprovalNotifier:
         except Exception:
             log.exception("herald-push: couldn't prepare an approval push")
 
+    def _profile_and_home(self, session: str):
+        """The profile that owns the session (when exactly one does), else this plugin's own."""
+        try:
+            owner = self.resolve(session) if session else ""
+        except Exception:
+            owner = ""
+        if owner and PROFILE_RE.match(owner) and owner != self.profile:
+            return owner, (self.root if owner == "default" else self.root / "profiles" / owner)
+        return self.profile, self.home
+
     def _notify(self, kwargs: dict) -> None:
-        if not self.enabled(self.home):
-            return
-        allow = self.store.allowlist()
-        devices = [d for d in self.store.devices() if allow.allows(d.device_id, self.profile)]
-        if not devices:
+        if kwargs.get("coalesced") or kwargs.get("surface") not in SURFACES:
             return
         command = str(kwargs.get("command") or "")
         description = str(kwargs.get("description") or "")
         session = str(kwargs.get("session_key") or "")
+        profile, home = self._profile_and_home(session)
+        if not self.enabled(home):
+            return
+        allow = self.store.allowlist()
+        devices = [d for d in self.store.devices() if allow.allows(d.device_id, profile)]
+        if not devices:
+            return
         key = hashlib.sha256("\x1f".join((session, str(kwargs.get("pattern_key") or ""), command)).encode("utf-8")).hexdigest()
-        if self._seen_recently(key):
+        if seen_recently(key, self.now()):
             return
         payload = push.message(
-            "approval", bot=self.profile, label=bot_label(self.home, self.profile), session=session or None,
+            "approval", bot=profile, label=bot_label(home, profile), session=session or None,
             command=self._safe_command(command), description=clip(description, MAX_DESCRIPTION) or None,
             request_id=key[:12])
         sig = self.store.identity()[2]
-        self.spawn(lambda: self._send(devices, payload, sig))
+        self.spawn(lambda: self._send(profile, devices, payload, sig))
 
     def _safe_command(self, command: str) -> Optional[str]:
         """The command with secrets redacted and clipped, or None when it can't be redacted."""
@@ -342,16 +442,7 @@ class ApprovalNotifier:
         except Exception:
             return None
 
-    def _seen_recently(self, key: str) -> bool:
-        now = self.now()
-        with self._lock:
-            self._recent = {k: t for k, t in self._recent.items() if now - t < DEDUPE_SECONDS}
-            if key in self._recent:
-                return True
-            self._recent[key] = now
-        return False
-
-    def _send(self, devices, payload: dict, sig) -> None:
+    def _send(self, profile: str, devices, payload: dict, sig) -> None:
         try:
             with httpx.Client(timeout=_TIMEOUT, follow_redirects=False) as client:
                 for device in devices:
@@ -359,10 +450,10 @@ class ApprovalNotifier:
                         body = self.seal(device, payload, sig)
                         outcome = self.post(device, body, client)
                     except Exception as exc:
-                        log.warning("herald-push: an approval push for %s failed: %s", self.profile, type(exc).__name__)
+                        log.warning("herald-push: an approval push for %s failed: %s", profile, type(exc).__name__)
                         continue
                     if outcome != push.OK:
-                        log.warning("herald-push: an approval push for %s was not taken (%s)", self.profile, outcome)
+                        log.warning("herald-push: an approval push for %s was not taken (%s)", profile, outcome)
         except Exception:
             log.exception("herald-push: sending approval pushes failed")
 ```
@@ -388,7 +479,7 @@ git commit -m "approvals: push a notification when a bot waits for approval"
 - Test: `tests/test_approvals.py` (append), `tests/test_command_router.py` (append)
 
 **Interfaces:**
-- Consumes: `ApprovalNotifier`, `HOOK` (Task 1); the context's `register_hook(name, callback)` and `_manager.home_path`.
+- Consumes: `ApprovalNotifier(store, profile, home, root)`, `HOOK` (Task 1); the context's `register_hook(name, callback)` and `_manager.home_path`.
 - Produces: `approvals.attach(ctx, store: Store, root: Path) -> Optional[ApprovalNotifier]` (None when this Hermes cannot register the hook or the profile name is not valid); `FEATURES == ["profile_allowlist", "reliable_push", "approval_push"]`; version `0.8.0` in `plugin.yaml` and `plugin.py`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -506,7 +597,7 @@ def attach(ctx, store: Store, root: Path) -> Optional[ApprovalNotifier]:
     if not PROFILE_RE.match(profile):
         log.warning("herald-push: approval pushes are off for a profile with an unusable name")
         return None
-    notifier = ApprovalNotifier(store, profile, home)
+    notifier = ApprovalNotifier(store, profile, home, root)
     try:
         register(HOOK, notifier.on_request)
     except Exception:
@@ -588,4 +679,4 @@ gh release create v0.8.0 --title "0.8.0: approval notifications" --notes "$(sed 
 - **Spec coverage:** hook on `pre_approval_request` with a non-blocking daemon thread (Task 1); allowlist, per-profile switch, redaction with description-only fallback, clipping, dedupe, no `choices`/`expires` (Task 1); `approval_push` feature and version (Task 2); old-Hermes safety (Task 2 `attach` tests); docs (Task 2); release gate (Task 3). The phone side (Hikyaku 1.3.0) and the staged install are explicitly outside this plan.
 - **Placeholders:** none.
 - **Type consistency:** `ApprovalNotifier(store, profile, home, *, now, post, seal, redact, enabled, spawn)`, `on_request(**kwargs)`, `attach(ctx, store, root)`, `HOOK`, `MAX_COMMAND`, `MAX_DESCRIPTION`, `DEDUPE_SECONDS` are used with the same names throughout. The tests replace `notifier.post` and `notifier.seal` as attributes, which the class defines.
-- **Known limits to state at release:** the hook's argument list has no approval timeout, so no countdown; `agent.redact` is a host module, not a documented plugin API; one push per process is possible if two managers see differently worded commands.
+- **Known limits to state at release:** the hook's argument list has no approval timeout, so no countdown; `agent.redact` is a host module, not a documented plugin API; approvals from cron runs are not verified to reach the hook; a Telegram approval's session cannot be opened in the app, so tapping its notification opens the bot's chat instead.
