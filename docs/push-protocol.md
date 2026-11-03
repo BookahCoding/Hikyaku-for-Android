@@ -135,7 +135,7 @@ UTF-8 JSON. Every message has:
 | `type` | Fields |
 |---|---|
 | `bot_message` | `bot` (profile), `label`, `session` (stored id), `text` |
-| `approval` | `bot`, `label`, `session`, `request_id`, `command`, `description`, `choices` (subset of `once`, `session`, `deny`; never `always`), `expires` (unix) |
+| `approval` | `bot`, `label`, `session`, `request_id`, `command`, `description`, `choices` (subset of `once`, `session`, `deny`; never `always`), `expires` (unix). Plugin 0.8.0 sends it as a notice only: `bot`, `label`, `session` (the chat to open), a short `request_id`, and `command` and `description` redacted by Hermes and clipped (either may be missing); no `choices` and no `expires`. Hikyaku shows a notification only while it is not connected and the message is under 10 minutes old, and opens the chat on tap. It cannot be answered from the notification |
 | `phone_request` | `request_id`. A phone tool call waits on the gateway; the phone fetches it over the direct connection |
 | `phone_call` | `request_id`, `session` (or none, from a scheduled job), `expires` (gateway unix), `reason`, `details` (optional). `phone_call_me` rings: the phone rings from the push alone and sends the outcome back over the direct connection once it has one |
 | `ping` | none. Sent by the plugin's "Send a test" action |

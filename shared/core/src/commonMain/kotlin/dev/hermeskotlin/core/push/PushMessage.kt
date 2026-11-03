@@ -52,6 +52,13 @@ data class PushMessage(
         /** A cron job the user follows finished a run ([job], [run], [status], [text] its start). */
         const val CRON_RUN = "cron_run"
 
+        /**
+         * A bot waits for the user to approve a command ([command] and [description], already redacted by the
+         * gateway's Hermes, and clipped). Only a notice: it carries no choices and can't be answered from here; the
+         * notification opens the chat.
+         */
+        const val APPROVAL = "approval"
+
         /** Gateway → phone messages are news; older than a day they're dropped. */
         const val MAX_AGE_G2P_SECONDS = 24 * 3600L
 
