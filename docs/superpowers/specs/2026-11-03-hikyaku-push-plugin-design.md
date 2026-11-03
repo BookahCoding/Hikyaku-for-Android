@@ -37,7 +37,6 @@ gateway without separate approval, any app (Android) change in this effort excep
 2. A failed publish returns `False`, is logged, and the read mark advances anyway: the push is lost.
 3. Every 3 s each profile's `state.db` is opened (`bot_chat_tip`) even when nothing changed.
 4. `commands.py` repeats a hand-rolled `op <json>` parse block per handler.
-5. The version lives in both `plugin.yaml` and `plugin.py`.
 
 ### 3.2 Design
 - **Send queue.** `poll` only enqueues `(device, payload)`. One worker per device sends with a short timeout
@@ -46,20 +45,22 @@ gateway without separate approval, any app (Android) change in this effort excep
   helper as `store.py`) with attempt count and next-try time. Backoff 5 s, 30 s, 5 min, then hourly. Entries older
   than 24 h are dropped (the phone drops older messages anyway); per-device cap (default 200, oldest dropped
   first). On start the leader loads the outbox and resumes.
-- **Idempotency.** A retry reuses the original message `id` and `ts`, so the phone's 24 h duplicate filter
-  absorbs any double delivery. Envelopes are re-sealed per attempt (fresh ephemeral key), the plaintext is not.
+- **Idempotency and privacy.** The envelope is sealed once, when queued, and the outbox stores that sealed body
+  (reply text never touches the disk in the clear). A retry re-posts the same body, so the message `id` is the
+  same and the phone's 24 h duplicate filter absorbs any double delivery. If the phone has re-registered since
+  (its push topic changed), the stale item is dropped.
 - **Cheaper polling.** Skip reading a profile's `state.db` when the modification time of `state.db` and its `-wal`
   file is unchanged since the last poll. A full read still happens at least every 60 s as a safety net.
 - **Command router.** One dispatcher with a handler table and a shared JSON-argument parser. The wire format of
   `/herald-push` (arguments, JSON answers, error strings, size limits, `trusted_surface` check) is unchanged;
   existing tests pin it.
-- **Single version source.** `plugin.yaml` is authoritative; `plugin.py` reads it. A test fails if they differ.
 - **Feature flag.** `features` gains `reliable_push` (informational).
+- **Version.** Bumped to 0.7.0 in `plugin.yaml` and `plugin.py`; existing tests already fail if the two differ.
 
 ### 3.3 Testing
 - The existing pytest suite stays green before every merge.
 - TDD for each new unit (send queue, outbox, router).
-- Failure injection: hung server, HTTP 500, process killed mid-send, restart with a non-empty outbox, outbox cap,
+- Failure injection: hung server (other phones still served), HTTP 500 and 4xx classification, process killed mid-send, restart with a non-empty outbox, outbox cap,
   expiry after 24 h, duplicate delivery.
 - Wire-format vectors (`tests/make_vector.py`) prove the envelope is byte-compatible, so the current app still
   decrypts everything.
