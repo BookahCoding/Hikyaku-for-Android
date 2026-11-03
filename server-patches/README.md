@@ -20,10 +20,27 @@ Run these in your hermes-agent folder (the one containing `.git`):
 ```
 git apply --check /path/to/slash-worker-heartbeat-v0.22.6.patch
 git apply /path/to/slash-worker-heartbeat-v0.22.6.patch
-hermes gateway restart
 ```
 
 `--check` is a dry run. If it reports an error, your hermes-agent version differs from v0.22.6 and the patch needs adjusting.
+
+Then restart Hermes (see below).
+
+### Restart after applying the patch or updating
+
+Restart **both** the gateway and the dashboard. The app connects to the dashboard (`hermes dashboard`), and a dashboard that keeps running old code makes switching models fail with "This gateway is running code from X but the checkout on disk is now Y".
+
+```
+hermes gateway restart
+```
+
+If you run the dashboard as its own service, restart it too. For example, with a systemd user service named `hermes-dashboard`:
+
+```
+systemctl --user restart hermes-dashboard
+```
+
+Find yours with `systemctl --user list-units 'hermes*'`, or check which process owns the dashboard port.
 
 ### Verify
 
@@ -35,11 +52,12 @@ You should see 2 files changed, 6 insertions(+), 1 deletion(-).
 
 ### After updating hermes-agent
 
-`hermes update` may overwrite or conflict with these edits. Re-apply the patch after each update, then restart the gateway.
+`hermes update` may overwrite or conflict with these edits. Re-apply the patch after each update, then restart the gateway and the dashboard.
 
 ### Undo
 
 ```
 git apply -R /path/to/slash-worker-heartbeat-v0.22.6.patch
-hermes gateway restart
 ```
+
+Then restart the gateway and the dashboard.
