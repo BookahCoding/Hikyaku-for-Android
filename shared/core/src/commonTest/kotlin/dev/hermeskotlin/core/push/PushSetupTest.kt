@@ -335,7 +335,9 @@ class PushSetupTest {
         assertTrue(gateway.registered.isEmpty())
         // The pinned plugin is this app's own, not the original's.
         assertTrue(PushApi.PLUGIN_REPO.startsWith("https://github.com/BookahCoding/"))
-        assertEquals(PushApi.PLUGIN_VERSION, PushApi.MIN_PUSH_PLUGIN_VERSION)
+        // The pinned plugin is at least the oldest one this app registers with; a gateway on that older one is left alone.
+        assertTrue(PushPluginReply(version = PushApi.PLUGIN_VERSION).versionAtLeast(PushApi.MIN_PUSH_PLUGIN_VERSION))
+        assertEquals("https://github.com/BookahCoding/hikyaku-push", PushApi.PLUGIN_REPO)
     }
 
     @Test

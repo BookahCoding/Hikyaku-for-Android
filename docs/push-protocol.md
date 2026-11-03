@@ -33,11 +33,13 @@ process, so a person allowed to chat with a bot can't register their own phone. 
 `info`, `unregister <device_id>` and `test <device_id>` (sends a `ping`). Each answers with one JSON object.
 
 If the gateway lacks the plugin, Herald installs it with `plugins.manage {action: "install", identifier:
-"https://github.com/BookahCoding/hermes-herald-push", ref: <commit>, enable: true}`. That is the same call
+"https://github.com/BookahCoding/hikyaku-push", ref: <commit>, enable: true}`. That is the same call
 Desktop's Plugins hub makes, and the plugin is live without a restart. `ref` pins the exact commit Herald was
 built against, so a later change to the repository never reaches a gateway unreviewed. A copy that is
 present but switched off is switched on (`plugins.manage {action: "toggle"}`) rather than reinstalled, and
 one older than Herald's minimum version is reinstalled at the pinned commit (`force: true`).
+Hermes names the install after the plugin manifest (`herald-push`), not the repository, so a gateway that has the
+plugin from the original repository gets the same plugin, not a second one.
 The update also checks bot profiles for existing downloaded copies and replaces older ones at the same
 pinned commit using `profile` in `plugins.manage`. Disabled bot copies stay disabled; missing copies are
 not installed, and newer versions are not downgraded. An outdated bot copy is offered an update even when
