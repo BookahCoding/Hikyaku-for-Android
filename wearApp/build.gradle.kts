@@ -8,7 +8,7 @@ plugins {
 // Herald's Wear OS companion: talk to Hermes from the wrist. It holds no gateway code; everything goes through
 // Herald on the phone over the Data Layer (shared:wearlink), which pairs the two only when they share the
 // application ID and signing key. So its IDs, versions and signing follow androidApp's exactly.
-val appVersion = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "1.4.1"
+val appVersion = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "1.4.2"
 val releasesRepo = (findProperty("releasesRepo") as String?).orEmpty()
 
 android {
