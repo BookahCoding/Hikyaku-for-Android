@@ -95,7 +95,6 @@ internal fun VoicePanel(
     hazeState: HazeState,
     state: VoiceChatState,
     onSkip: () -> Unit,
-    onMute: () -> Unit,
     onEnd: () -> Unit,
     onExpand: () -> Unit,
     onSendNow: () -> Unit = {},
@@ -156,14 +155,7 @@ internal fun VoicePanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             when {
-                state.live && state.phase != VoicePhase.Connecting -> RoundButton(
-                    if (state.muted) Lucide.MicOff else Lucide.Mic,
-                    contentDescription = if (state.muted) "Unmute" else "Mute",
-                    fill = if (state.muted) Theme[colors][textColor] else Theme[colors][textColor].copy(alpha = 0.08f),
-                    tint = if (state.muted) Theme[colors][background] else Theme[colors][textColor],
-                    onClick = onMute,
-                )
-                !state.live && state.phase == VoicePhase.Speaking -> RoundButton(
+                state.phase == VoicePhase.Speaking -> RoundButton(
                     Lucide.SkipForward,
                     contentDescription = "Skip the reply",
                     fill = Theme[colors][textColor].copy(alpha = 0.08f),
@@ -185,7 +177,7 @@ internal fun VoicePanel(
 
 internal fun label(state: VoiceChatState) = when (state.phase) {
     VoicePhase.Connecting -> "Connecting…"
-    VoicePhase.Listening -> if (state.muted) "Muted" else if (state.hearing) "Hearing you…" else "Listening…"
+    VoicePhase.Listening -> if (state.hearing) "Hearing you…" else "Listening…"
     VoicePhase.Transcribing -> "Catching that…"
     VoicePhase.Thinking -> "Thinking…"
     VoicePhase.Speaking -> "Speaking…"
@@ -193,14 +185,13 @@ internal fun label(state: VoiceChatState) = when (state.phase) {
 }
 
 /** The chained chat has heard you: what's said so far can go now, without waiting for the pause. */
-internal fun canSendNow(state: VoiceChatState) = !state.live && state.phase == VoicePhase.Listening && state.hearing
+internal fun canSendNow(state: VoiceChatState) = state.phase == VoicePhase.Listening && state.hearing
 
 /** What to do now, while there are no words to show. */
 internal fun hint(state: VoiceChatState) = when {
-    state.muted -> "Tap the microphone to talk again"
     state.phase == VoicePhase.Connecting -> "Setting up the call"
     state.phase == VoicePhase.Thinking -> "Shisha is on it"
-    (state.live || state.bargeIn) && state.phase == VoicePhase.Speaking -> "Talk over it to cut in"
+    state.bargeIn && state.phase == VoicePhase.Speaking -> "Talk over it to cut in"
     state.phase == VoicePhase.Speaking -> "Tap skip to talk again"
     canSendNow(state) -> "Pause when you're done, or tap send"
     else -> "Just talk · say “stop” to end"
@@ -250,14 +241,14 @@ private fun RoundButton(icon: ImageVector, contentDescription: String, fill: Col
  */
 @Composable
 private fun Orb(state: VoiceChatState, modifier: Modifier = Modifier) {
-    val tint by animateColorAsState(if (state.muted) Theme[colors][textTertiary] else Theme[colors][accentText])
+    val tint by animateColorAsState(Theme[colors][accentText])
     val time by rememberInfiniteTransition().animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(2_400, easing = LinearEasing)),
     )
     // Square root, so a phone mic's quiet range still visibly moves it.
-    val listening = state.phase == VoicePhase.Listening && !state.muted
+    val listening = state.phase == VoicePhase.Listening
     val level by animateFloatAsState(
         if (listening) sqrt((state.level * 4f).coerceIn(0f, 1f)) else 0f,
         spring(stiffness = Spring.StiffnessMediumLow),

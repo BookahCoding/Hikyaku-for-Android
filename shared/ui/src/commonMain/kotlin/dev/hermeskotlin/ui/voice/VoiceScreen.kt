@@ -130,7 +130,6 @@ internal fun VoiceScreen(
     onToggleCaptions: () -> Unit,
     onMinimize: () -> Unit,
     onSkip: () -> Unit,
-    onMute: () -> Unit,
     onEnd: () -> Unit,
     onType: () -> Unit,
     /** Sends what's been heard without waiting for the pause. */
@@ -197,9 +196,7 @@ internal fun VoiceScreen(
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
                     when {
-                        state.live && state.phase != VoicePhase.Connecting ->
-                            SideButton(Lucide.Mic.takeUnless { state.muted } ?: Lucide.MicOff, "Mute", onMute, on = state.muted, toggle = true)
-                        !state.live && state.phase == VoicePhase.Speaking -> SideButton(Lucide.SkipForward, "Skip the reply", onSkip)
+                        state.phase == VoicePhase.Speaking -> SideButton(Lucide.SkipForward, "Skip the reply", onSkip)
                         canSendNow(state) -> SideButton(Lucide.ArrowUp, "Send now", onSendNow)
                         // An empty slot keeps End in the middle.
                         else -> Spacer(Modifier.size(52.dp))
@@ -336,9 +333,8 @@ private fun WorkingChip(tool: String) {
  */
 @Composable
 private fun BigOrb(state: VoiceChatState, modifier: Modifier = Modifier) {
-    val muted = state.muted
-    val tint by animateColorAsState(if (muted) Theme[colors][textMuted] else Theme[colors][accent])
-    val soft by animateColorAsState(if (muted) Theme[colors][surface3] else Theme[colors][accentSoft])
+    val tint by animateColorAsState(Theme[colors][accent])
+    val soft by animateColorAsState(Theme[colors][accentSoft])
     val arc = Theme[colors][accentText]
     val glow = LocalGlow.current
     val time by rememberInfiniteTransition().animateFloat(
@@ -347,7 +343,7 @@ private fun BigOrb(state: VoiceChatState, modifier: Modifier = Modifier) {
         animationSpec = infiniteRepeatable(tween(2_200, easing = LinearEasing)),
     )
     // Square root, so a phone mic's quiet range still visibly moves it.
-    val listening = state.phase == VoicePhase.Listening && !muted
+    val listening = state.phase == VoicePhase.Listening
     val level by animateFloatAsState(
         if (listening) sqrt((state.level * 4f).coerceIn(0f, 1f)) else 0f,
         spring(stiffness = Spring.StiffnessMediumLow),
@@ -380,7 +376,6 @@ private fun BigOrb(state: VoiceChatState, modifier: Modifier = Modifier) {
         val gap = 4.dp.toPx()
         BAR_HEIGHTS.forEachIndexed { i, full ->
             val scale = when {
-                muted -> 0.2f
                 speaking -> 0.45f + 0.55f * ((sin((time * 2f + i * 0.21f) * 2f * PI.toFloat()) + 1f) / 2f)
                 listening -> 0.3f + 0.7f * level
                 else -> 0.3f

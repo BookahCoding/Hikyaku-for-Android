@@ -143,14 +143,14 @@ fun InCallScreen(model: PhoneCallModel) {
     }
     hermesTheme(palette)(if (settings.pureBlack) PureBlack else ColorScheme.Dark) {
         CompositionLocalProvider(LocalAppTheme provides palette) {
-            InCallView(state, seconds, onMute = model::toggleMute, onEnd = model::hangUp)
+            InCallView(state, seconds, onEnd = model::hangUp)
         }
     }
 }
 
 /** The call screen itself, stateless so previews can draw it. */
 @Composable
-internal fun InCallView(state: PhoneCallState, seconds: Long, onMute: () -> Unit, onEnd: () -> Unit) {
+internal fun InCallView(state: PhoneCallState, seconds: Long, onEnd: () -> Unit) {
     val voice = state.voice
     Box(
         Modifier.fillMaxSize().background(Theme[colors][background]).windowInsetsPadding(WindowInsets.safeDrawing),
@@ -197,16 +197,8 @@ internal fun InCallView(state: PhoneCallState, seconds: Long, onMute: () -> Unit
         }
         Row(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(start = 48.dp, end = 48.dp, bottom = 72.dp),
-            horizontalArrangement = if (voice.live) Arrangement.SpaceBetween else Arrangement.Center,
+            horizontalArrangement = Arrangement.Center,
         ) {
-            if (voice.live) {
-                CallButton(
-                    if (voice.muted) "Unmute" else "Mute",
-                    if (voice.muted) Lucide.MicOff else Lucide.Mic,
-                    if (voice.muted) Theme[colors][accent] else Theme[colors][surface3],
-                    onMute,
-                )
-            }
             CallButton("End", Lucide.PhoneOff, Theme[colors][danger], onEnd)
         }
     }
@@ -219,7 +211,7 @@ internal fun callStatus(state: PhoneCallState, seconds: Long): String {
     val length = "${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}"
     val doing = when (voice.phase) {
         VoicePhase.Off, VoicePhase.Connecting -> return "Connecting…"
-        VoicePhase.Listening -> if (voice.muted) "Muted" else "Listening"
+        VoicePhase.Listening -> "Listening"
         VoicePhase.Transcribing -> "Listening"
         VoicePhase.Thinking -> voice.working?.let { "Working: $it" } ?: "Thinking"
         VoicePhase.Speaking -> "Speaking"

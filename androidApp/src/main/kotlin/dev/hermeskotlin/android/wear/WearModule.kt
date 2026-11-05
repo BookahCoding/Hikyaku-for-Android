@@ -3,7 +3,6 @@ package dev.hermeskotlin.android.wear
 import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.wear.WatchOutbox
 import dev.hermeskotlin.core.wear.WatchRelay
-import dev.hermeskotlin.ui.voice.WatchCalls
 import dev.hermeskotlin.ui.calls.PhoneCallModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf
@@ -13,7 +12,6 @@ import org.koin.dsl.module
 val wearModule = module {
     single<WatchOutbox> { PhoneOutbox(androidContext()) }
     single { WatchRelay(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-    single { WatchCalls(get(), get(), get(), get(), get()) }
     single { WearRequests(get(), get(), get<ProfileGate>()) }
     single { WatchRinger(androidContext(), get(), get(), get(), get(), get()) }
     single { WatchAccentSync(androidContext(), get(), get()) }

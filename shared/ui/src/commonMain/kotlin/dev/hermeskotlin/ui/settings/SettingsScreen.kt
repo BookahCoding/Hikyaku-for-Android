@@ -32,8 +32,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,7 +40,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +59,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -73,7 +69,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.composables.icons.lucide.Activity
-import com.composables.icons.lucide.AudioLines
 import com.composables.icons.lucide.BellRing
 import com.composables.icons.lucide.PanelLeft
 import com.composables.icons.lucide.PanelTop
@@ -134,7 +129,6 @@ import dev.hermeskotlin.designsystem.components.SegmentedControl
 import dev.hermeskotlin.designsystem.components.Spinner
 import dev.hermeskotlin.designsystem.components.Surface
 import dev.hermeskotlin.designsystem.components.Switch
-import dev.hermeskotlin.designsystem.components.TextField
 import dev.hermeskotlin.designsystem.components.halo
 import dev.hermeskotlin.designsystem.danger
 import dev.hermeskotlin.designsystem.eyebrow
@@ -162,7 +156,6 @@ import dev.hermeskotlin.ui.chat.summary
 import dev.hermeskotlin.core.gateway.CheckStage
 import dev.hermeskotlin.core.gateway.StageResult
 import dev.hermeskotlin.ui.connect.ConnectionChecklist
-import dev.hermeskotlin.ui.qwen.QwenLiveScreen
 import dev.hermeskotlin.ui.sessions.SubpageHeader
 import dev.hermeskotlin.ui.update.UpdateBanner
 import org.koin.compose.viewmodel.koinViewModel
@@ -197,7 +190,6 @@ fun SettingsScreen(
     var phoneToolsOpen by remember { mutableStateOf(false) }
     var appIconOpen by remember { mutableStateOf(false) }
     var startInstructionOpen by remember { mutableStateOf(false) }
-    var qwenLiveOpen by remember { mutableStateOf(false) }
     // Read again when the App icon page closes, so its row names the icon just applied.
     val appIcons = key(appIconOpen) { rememberAppIcons() }
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
@@ -205,10 +197,7 @@ fun SettingsScreen(
     val profileNote by viewModel.profileNote.collectAsStateWithLifecycle()
     val profileCheck by viewModel.profileCheck.collectAsStateWithLifecycle()
     LaunchedEffect(gateway, profile) { viewModel.bind(gateway, profile) }
-    PlatformBackHandler(
-        enabled = !checkOpen && !phoneToolsOpen && !appIconOpen && !startInstructionOpen && !qwenLiveOpen,
-        onBack = onBack,
-    )
+    PlatformBackHandler(enabled = !checkOpen && !phoneToolsOpen && !appIconOpen && !startInstructionOpen, onBack = onBack)
     SettingsView(
         settings, info, gateway.url, viewModel::update, onBack, onSignOut, onOpenGateways,
         gatewayName = gateway.label,
@@ -234,7 +223,6 @@ fun SettingsScreen(
         onOpenAppIcon = { appIconOpen = true },
         onThemeIcon = appIcons::applyWhenLeaving,
         onOpenStartInstruction = { startInstructionOpen = true },
-        onOpenQwenLive = { qwenLiveOpen = true },
         suggestions = suggestions,
         onInstallSuggestions = viewModel::installSuggestions,
         onCheckSuggestions = viewModel::checkSuggestions,
@@ -253,7 +241,6 @@ fun SettingsScreen(
         )
     }
     if (appIconOpen) AppIconScreen(onBack = { appIconOpen = false })
-    if (qwenLiveOpen) QwenLiveScreen(onBack = { qwenLiveOpen = false })
     ConnectionCheckSheet(
         visible = checkOpen,
         results = check.results,
@@ -335,7 +322,6 @@ internal fun SettingsView(
     /** The icon a theme pick brings, shown once the app is left. */
     onThemeIcon: (AppIcon) -> Unit = {},
     onOpenStartInstruction: () -> Unit = {},
-    onOpenQwenLive: () -> Unit = {},
     /** Where the Next Prompt plugin behind Suggested replies stands on the gateway. */
     suggestions: SuggestionsPlugin = SuggestionsPlugin.Checking,
     onInstallSuggestions: () -> Unit = {},
@@ -592,10 +578,6 @@ internal fun SettingsView(
                             optionLabel = { it.name },
                         )
                     }
-                    Divider()
-                    QwenProxyFields(settings, onUpdate)
-                    Divider()
-                    ActionRow("Open live chat", Lucide.AudioLines, onOpenQwenLive)
                 }
 
                 Section("Notifications") {
@@ -907,49 +889,6 @@ internal fun Section(title: String, content: @Composable ColumnScope.() -> Unit)
             },
         )
         Surface(Modifier.fillMaxWidth()) { Column(content = content) }
-    }
-}
-
-/**
- * The proxy address and token. Written as they're typed. A value loaded from disk fills an empty field once,
- * and doesn't put itself back after it's been edited.
- */
-@Composable
-private fun QwenProxyFields(settings: AppSettings, onUpdate: ((AppSettings) -> AppSettings) -> Unit) {
-    val url = rememberTextFieldState(settings.qwenProxyUrl)
-    val token = rememberTextFieldState(settings.qwenProxyToken)
-    val current by rememberUpdatedState(settings)
-    var edited by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        snapshotFlow { url.text.toString() to token.text.toString() }.collect { (nextUrl, nextToken) ->
-            val saved = current
-            if (nextUrl != saved.qwenProxyUrl || nextToken != saved.qwenProxyToken) {
-                edited = true
-                onUpdate { it.copy(qwenProxyUrl = nextUrl, qwenProxyToken = nextToken) }
-            }
-        }
-    }
-    LaunchedEffect(settings.qwenProxyUrl, settings.qwenProxyToken) {
-        if (!edited && (url.text.toString() != settings.qwenProxyUrl || token.text.toString() != settings.qwenProxyToken)) {
-            url.edit { replace(0, length, settings.qwenProxyUrl) }
-            token.edit { replace(0, length, settings.qwenProxyToken) }
-        }
-    }
-    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TextField(
-            state = url,
-            label = "Live proxy address",
-            placeholder = "http://192.168.1.10:8787",
-            supportingText = "The phone connects here. The DashScope key stays on the proxy.",
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-        )
-        TextField(
-            state = token,
-            label = "Proxy token",
-            placeholder = "Same as HERALD_LIVE_PROXY_TOKEN",
-            supportingText = "Not the DashScope key.",
-            password = true,
-        )
     }
 }
 

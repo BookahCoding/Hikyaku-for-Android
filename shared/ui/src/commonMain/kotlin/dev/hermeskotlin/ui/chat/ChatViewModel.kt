@@ -55,7 +55,6 @@ import dev.hermeskotlin.core.journey.JourneyApi
 import dev.hermeskotlin.ui.pet.PetController
 import dev.hermeskotlin.ui.journey.JourneyController
 import dev.hermeskotlin.core.voice.AudioApi
-import dev.hermeskotlin.core.voice.LiveCalls
 import dev.hermeskotlin.core.voice.VoiceKeepAlive
 import dev.hermeskotlin.core.voice.SpeechPlayer
 import dev.hermeskotlin.core.voice.SpeechStreams
@@ -211,7 +210,6 @@ class ChatViewModel(
     player: SpeechPlayer,
     appScope: CoroutineScope,
     private val bots: BotsApi,
-    liveCalls: LiveCalls,
     voiceKeepAlive: VoiceKeepAlive,
     deviceDictation: DeviceDictation,
     speechStreams: SpeechStreams,
@@ -233,7 +231,6 @@ class ChatViewModel(
         audioApi, recorder, player, viewModelScope, appScope, voiceKeepAlive, deviceDictation,
         speechStreams = speechStreams,
         deviceLock = deviceLock,
-        liveCalls = liveCalls,
         readAloudVoices = readAloudVoices ?: InMemoryReadAloudVoices(),
     )
 
@@ -1264,7 +1261,6 @@ class ChatViewModel(
 
     override fun stopVoiceChat() = voice.stopChat()
 
-    override fun toggleVoiceMute() = voice.toggleMute()
 
     override fun dismissVoiceChatError() = voice.dismissChatError()
 

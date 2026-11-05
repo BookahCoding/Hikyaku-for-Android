@@ -863,7 +863,6 @@ internal fun ChatView(
                 onToggleCaptions = { voiceCaptions = !voiceCaptions },
                 onMinimize = { voiceFolded = true },
                 onSkip = actions::skipSpeech,
-                onMute = actions::toggleVoiceMute,
                 onEnd = actions::stopVoiceChat,
                 onType = {
                     typeAfterVoice = true
@@ -959,7 +958,6 @@ private fun ColumnScope.Dock(
                 hazeState = hazeState,
                 state = voiceChat,
                 onSkip = actions::skipSpeech,
-                onMute = actions::toggleVoiceMute,
                 onEnd = actions::stopVoiceChat,
                 onExpand = onExpandVoice,
                 onSendNow = actions::sendVoiceNow,

@@ -236,17 +236,11 @@ class WatchRelay(
     private fun liveVoiceFresh(gateway: GatewayUrl): Boolean =
         liveVoice?.first == gateway && Clock.System.now().toEpochMilliseconds() - liveVoiceAt < LIVE_VOICE_CHECK_MS
 
-    /** Whether the gateway talks live (GPT-Live); [known] is what it said last. */
+    /** Live voice calls are gone from the app: no gateway talks live to the watch, so it shows no call. */
+    @Suppress("UNUSED_PARAMETER")
     private suspend fun checkLiveVoice(gateway: GatewayUrl, known: Boolean?): Boolean {
-        val result = audio.voiceLiveStatus(gateway, profiles.get(gateway))
-        // A failed check keeps what was known: an older gateway answers 404, a dropped one nothing.
-        val on = when (result) {
-            is ApiResult.Success -> result.value.live
-            else -> known ?: false
-        }
-        // Not over the gateway switched to meanwhile: the one slot is for the current one.
-        if (gateways.current()?.gatewayUrl == gateway) liveVoiceIs(gateway, on)
-        return on
+        if (gateways.current()?.gatewayUrl == gateway) liveVoiceIs(gateway, false)
+        return false
     }
 
     /**

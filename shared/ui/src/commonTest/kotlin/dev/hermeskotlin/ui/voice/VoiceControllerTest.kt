@@ -337,9 +337,8 @@ class VoiceControllerTest {
     @Test
     fun sendNowShowsOnlyOnceTheChainedChatHearsYou() {
         assertTrue(canSendNow(VoiceChatState(VoicePhase.Listening, hearing = true)))
-        // Nothing heard yet, a live call, or no longer listening: nothing to send.
+        // Nothing heard yet, or no longer listening: nothing to send.
         assertTrue(!canSendNow(VoiceChatState(VoicePhase.Listening)))
-        assertTrue(!canSendNow(VoiceChatState(VoicePhase.Listening, hearing = true, live = true)))
         assertTrue(!canSendNow(VoiceChatState(VoicePhase.Transcribing, hearing = true)))
         assertEquals("Pause when you're done, or tap send", hint(VoiceChatState(VoicePhase.Listening, hearing = true)))
     }

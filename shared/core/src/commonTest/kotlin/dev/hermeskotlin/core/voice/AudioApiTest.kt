@@ -29,10 +29,9 @@ class AudioApiTest {
         // Only the timeouts the calls ask for matter here, not what they make of the empty answer.
         runCatching { api.transcribe(url, byteArrayOf(1), "audio/wav", null) }
         runCatching { api.speak(url, "hi", null) }
-        runCatching { api.startVoiceLive(url, "sdp", emptyList(), null) }
         runCatching { api.ttsLease(url, true, null) }
 
-        val paths = listOf("/api/audio/transcribe", "/api/audio/speak", "/api/audio/voice-live/session", "/api/audio/tts-lease")
+        val paths = listOf("/api/audio/transcribe", "/api/audio/speak", "/api/audio/tts-lease")
         assertEquals(paths.toSet(), timeouts.keys)
         for (path in paths) {
             val timeout = assertNotNull(timeouts[path], path)
