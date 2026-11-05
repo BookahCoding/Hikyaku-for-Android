@@ -129,11 +129,8 @@ connection one at a time and says what to fix.
 
 ## Community
 
-Join the [Herald Discord](https://discord.gg/wCtyvQ3KcM) to get help, share your setup, suggest features
-and hear about new releases first. In the app, it's under **Settings → About → Join the Discord**.
-
-Found a bug? [Open an issue](https://github.com/Giton22/herald/issues/new/choose) here or post it in
-the server's #bug-reports.
+Report bugs or suggestions to [bookah@tutamail.com](mailto:bookah@tutamail.com). In the app, it's under
+**Settings → About → Report bugs or suggestions**.
 
 ## Development
 
