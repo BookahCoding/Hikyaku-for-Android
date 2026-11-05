@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
 /** The "Ukiyo-e" theme: the colors of a woodblock print, and that every one of them can be read. */
 class UkiyoeThemeTest {
 
-    private val palette = AccentPalette.Ukiyoe
+    private val palette = AppTheme.Ukiyoe
 
     private fun contrast(a: Color, b: Color): Float {
         val la = a.luminance()
@@ -35,8 +35,8 @@ class UkiyoeThemeTest {
 
     @Test
     fun itIsOneOfThePresetsAndIsFoundByItsName() {
-        assertTrue(palette in AccentPalette.all)
-        assertSame(palette, AccentPalette.named("Ukiyo-e"))
+        assertTrue(palette in AppTheme.all)
+        assertSame(palette, AppTheme.named("Ukiyo-e"))
         assertEquals("Ukiyo-e", palette.name)
     }
 
@@ -46,7 +46,7 @@ class UkiyoeThemeTest {
         assertEquals(Color(0xFFF4EDD9), schemes.getValue("light").getValue(background))
         assertEquals(Color(0xFF0E1424), schemes.getValue("dark").getValue(background))
         assertEquals(Color.Black, schemes.getValue("black").getValue(background))
-        // Paper is warm and indigo is blue: not the graphite and off-white of the other presets.
+        // Paper is warm and indigo is blue: not the graphite and off-white of the other themes.
         val paper = schemes.getValue("light").getValue(background)
         assertTrue(paper.red > paper.green && paper.green > paper.blue, "paper should be warm")
         val night = schemes.getValue("dark").getValue(background)
@@ -138,13 +138,11 @@ class UkiyoeThemeTest {
 
     @Test
     fun theOtherPresetsAreExactlyWhatTheyWere() {
-        // Only this preset brings neutrals of its own; the rest keep the graphite and off-white sets.
-        for (other in AccentPalette.all.filter { it != palette }) {
-            assertNull(other.light.neutrals, other.name)
-            assertNull(other.dark.neutrals, other.name)
-            assertNull(other.black.neutrals, other.name)
-        }
-        val blue = AccentPalette.Blue
+        // Blue is kept (unlisted) as the neutral fallback: it brings no neutrals of its own, so the graphite and off-white sets stay.
+        assertNull(AppTheme.Blue.light.neutrals)
+        assertNull(AppTheme.Blue.dark.neutrals)
+        assertNull(AppTheme.Blue.black.neutrals)
+        val blue = AppTheme.Blue
         val light = lightColors(blue.light)
         val dark = darkColors(blue.dark)
         val black = pureBlackColors(blue.black)

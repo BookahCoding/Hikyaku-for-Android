@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
 
-/** The Ukiyo-e vermilion (AccentPalette) the agent's mark sits on, kept whatever accent the app is drawn in. */
+/** The Ukiyo-e vermilion (AppTheme) the agent's mark sits on, kept whatever accent the app is drawn in. */
 val ShishaBrandVermilion = Color(0xFFA63F2D)
 
 /** The washi paper the mark is drawn in. */

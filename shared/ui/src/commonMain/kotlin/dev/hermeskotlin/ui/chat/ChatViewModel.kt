@@ -152,7 +152,24 @@ data class ChatTarget(
     val draft: ComposeDraft? = null,
     val cwd: String? = null,
     val readUpTo: Double? = null,
+    /**
+     * A new chat standing in for a remembered Bot Chat that might still be a real bot's. The remembered
+     * chat is left in place, so the next launch can open it once a roster says the profile was made a bot.
+     */
+    val preserveLastChat: Boolean = false,
+    /**
+     * Set when this is a profile's Bot Chat found by lookup, though the profile isn't a bot the user made
+     * (so [bot] is null): the profile's real name, which [profile] can't give (null means the launch profile).
+     * It gets the Bot Chat protections (no rename, delete, archive or pin, `/new` compresses, no pinned model)
+     * and nothing else: it never opens, follows or starts a Bot Chat.
+     */
+    val botChatProfile: String? = null,
 ) {
+    val isBotChat: Boolean get() = botChatProfile != null
+
+    /** Whether this is some bot's permanent chat, a made bot's or a looked-up one. */
+    val keepsBotChatRules: Boolean get() = bot != null || isBotChat
+
     /**
      * The profile whose last chat this is, which the next launch reads: a bot's chat counts where the Chats
      * list was, the launch profile (null) included, not under the bot's own profile.
@@ -356,7 +373,7 @@ class ChatViewModel(
                 .map { chat ->
                     chat.storedSessionId?.takeIf { chat.hasConversation }?.let { id ->
                         val bot = target?.bot
-                        LastChat(id, chat.title, bot = bot?.name, botLabel = bot?.label)
+                        LastChat(id, chat.title, bot = bot?.name, botLabel = bot?.label, botChatProfile = target?.botChatProfile)
                     }
                 }
                 // Distinct before dropping nulls, so returning to the same chat after a new one saves it again.
@@ -482,7 +499,10 @@ class ChatViewModel(
         _attachmentError.value = null
         restoreDraft(target, typed)
         target.draft?.let(::takeDraft)
-        if (target.storedSessionId == null) viewModelScope.launch { lastChats.set(target.gateway.gatewayUrl, null, target.profile) }
+        // A placeholder for a Bot Chat we couldn't classify yet must not wipe that memory.
+        if (target.storedSessionId == null && !target.preserveLastChat) {
+            viewModelScope.launch { lastChats.set(target.gateway.gatewayUrl, null, target.profile) }
+        }
         bind(target)
         // The catalog marks the previous chat's model; a new chat must show the profile default instead.
         _picker.update { it.copy(catalog = null, confirm = null) }
@@ -654,6 +674,8 @@ class ChatViewModel(
         // A Bot Chat follows its bot's configuration: a model picked in it is the bot's, never pinned to the
         // chat alone, which would leave the bot and its chat running different models (#129460).
         target?.bot?.let { bot -> return setBotModel(chat, bot, model, confirmed) }
+        // A looked-up Bot Chat of a profile that isn't a made bot: the profile's model is changed, not the chat's.
+        target?.botChatProfile?.let { name -> return setBotModel(chat, BotIdentity(name, name), model, confirmed) }
         viewModelScope.launch {
             val result = chat.setModel(model.id, model.provider, confirmed)
             if (result is ModelSwitch.NeedsConfirmation) _picker.update { it.copy(confirm = PendingSwitch(model, result.message)) }
@@ -831,7 +853,7 @@ class ChatViewModel(
         val repo = threads ?: return null
         val open = target ?: return null
         val scope = repo.scope.value ?: return null
-        if (open.bot != null || scope.url != open.gateway.gatewayUrl || scope.profile != open.profile) return null
+        if (open.keepsBotChatRules || scope.url != open.gateway.gatewayUrl || scope.profile != open.profile) return null
         return repo.threadFor(session.value?.state?.value?.storedSessionId ?: open.storedSessionId)
     }
 
@@ -867,7 +889,7 @@ class ChatViewModel(
             when (val route = SlashRoute.of(command.name, catalog())) {
                 // A bot keeps one chat forever, so a fresh start there is a fresh context, as on Desktop.
                 SlashRoute.NewChat -> when {
-                    target?.bot != null -> chat.compress(arg)
+                    target?.keepsBotChatRules == true -> chat.compress(arg)
                     // A thread keeps its place: its chat is filed away and a new one takes over.
                     openThread() != null -> startThreadFresh(chat, "/${command.name}")
                     else -> _requests.send(ChatRequest.NewChat)
@@ -896,7 +918,7 @@ class ChatViewModel(
                 SlashRoute.Title -> when {
                     arg.isEmpty() -> onGateway()
                     // Its title is what makes it the bot's chat; renamed, the bot would start a new one.
-                    target?.bot != null -> chat.showCommandOutput("/title", "A bot's chat keeps its name, so the bot can find it.", failed = true)
+                    target?.keepsBotChatRules == true -> chat.showCommandOutput("/title", "A bot's chat keeps its name, so the bot can find it.", failed = true)
                     else -> chat.retitle(arg)
                 }
                 SlashRoute.Branch -> {
@@ -922,28 +944,28 @@ class ChatViewModel(
         }
     }
 
-    /** `/skin [light|dark|black|system]`: this app's theme; bare, it steps to the next one. */
+    /** `/skin [light|dark|black|system]`: this app's color mode; bare, it steps to the next one. */
     private fun skin(chat: ChatSession, arg: String) {
         val current = settings.settings.value ?: AppSettings()
         val next = when (arg.lowercase()) {
-            "" -> when (current.theme) {
-                ThemeMode.System -> current.copy(theme = ThemeMode.Light)
-                ThemeMode.Light -> current.copy(theme = ThemeMode.Dark)
-                ThemeMode.Dark -> current.copy(theme = ThemeMode.System)
+            "" -> when (current.colorMode) {
+                ThemeMode.System -> current.copy(colorMode = ThemeMode.Light)
+                ThemeMode.Light -> current.copy(colorMode = ThemeMode.Dark)
+                ThemeMode.Dark -> current.copy(colorMode = ThemeMode.System)
             }
-            "light" -> current.copy(theme = ThemeMode.Light)
-            "dark" -> current.copy(theme = ThemeMode.Dark, pureBlack = false)
-            "black", "oled", "amoled" -> current.copy(theme = ThemeMode.Dark, pureBlack = true)
-            "system", "auto", "default" -> current.copy(theme = ThemeMode.System)
-            else -> return chat.showCommandOutput("/skin", "Themes here: light, dark, black or system.", failed = true)
+            "light" -> current.copy(colorMode = ThemeMode.Light)
+            "dark" -> current.copy(colorMode = ThemeMode.Dark, pureBlack = false)
+            "black", "oled", "amoled" -> current.copy(colorMode = ThemeMode.Dark, pureBlack = true)
+            "system", "auto", "default" -> current.copy(colorMode = ThemeMode.System)
+            else -> return chat.showCommandOutput("/skin", "Modes here: light, dark, black or system.", failed = true)
         }
         settings.update { next }
-        val name = when (next.theme) {
+        val name = when (next.colorMode) {
             ThemeMode.System -> "matches the system"
             ThemeMode.Light -> "light"
             ThemeMode.Dark -> if (next.pureBlack) "black" else "dark"
         }
-        chat.showCommandOutput("/skin", "Theme: $name.")
+        chat.showCommandOutput("/skin", "Mode: $name.")
     }
 
     /** `/pet [name|off]`: bare opens the gallery; a name adopts that pet; `off` puts it away. */

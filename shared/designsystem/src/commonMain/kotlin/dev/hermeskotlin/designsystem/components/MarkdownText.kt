@@ -70,6 +70,7 @@ import com.mikepenz.markdown.model.DefaultMarkdownTypography
 import com.mikepenz.markdown.model.markdownDimens
 import com.mikepenz.markdown.model.markdownPadding
 import dev.hermeskotlin.designsystem.accentText
+import dev.hermeskotlin.designsystem.secondaryText
 import dev.hermeskotlin.designsystem.body
 import dev.hermeskotlin.designsystem.caption
 import dev.hermeskotlin.designsystem.code
@@ -158,7 +159,7 @@ fun MarkdownText(text: String, modifier: Modifier = Modifier, streaming: Boolean
     val bodyStyle = compact ?: replyStyle
     val codeStyle = Theme[typography][code].copy(color = Theme[colors][textColor])
     val headingStyle = Theme[typography][heading].copy(color = Theme[colors][textColor])
-    val linkColor = Theme[colors][accentText]
+    val linkColor = Theme[colors][secondaryText]
     val markdownColors = DefaultMarkdownColors(
         text = bodyStyle.color,
         codeBackground = Theme[colors][well],

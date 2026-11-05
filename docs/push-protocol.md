@@ -33,11 +33,13 @@ process, so a person allowed to chat with a bot can't register their own phone. 
 `info`, `unregister <device_id>` and `test <device_id>` (sends a `ping`). Each answers with one JSON object.
 
 If the gateway lacks the plugin, Herald installs it with `plugins.manage {action: "install", identifier:
-"https://github.com/BookahCoding/hermes-herald-push", ref: <commit>, enable: true}`. That is the same call
+"https://github.com/BookahCoding/hikyaku-push", ref: <commit>, enable: true}`. That is the same call
 Desktop's Plugins hub makes, and the plugin is live without a restart. `ref` pins the exact commit Herald was
 built against, so a later change to the repository never reaches a gateway unreviewed. A copy that is
 present but switched off is switched on (`plugins.manage {action: "toggle"}`) rather than reinstalled, and
 one older than Herald's minimum version is reinstalled at the pinned commit (`force: true`).
+Hermes names the install after the plugin manifest (`herald-push`), not the repository, so a gateway that has the
+plugin from the original repository gets the same plugin, not a second one.
 The update also checks bot profiles for existing downloaded copies and replaces older ones at the same
 pinned commit using `profile` in `plugins.manage`. Disabled bot copies stay disabled; missing copies are
 not installed, and newer versions are not downgraded. An outdated bot copy is offered an update even when
@@ -133,7 +135,7 @@ UTF-8 JSON. Every message has:
 | `type` | Fields |
 |---|---|
 | `bot_message` | `bot` (profile), `label`, `session` (stored id), `text` |
-| `approval` | `bot`, `label`, `session`, `request_id`, `command`, `description`, `choices` (subset of `once`, `session`, `deny`; never `always`), `expires` (unix) |
+| `approval` | `bot`, `label`, `session`, `request_id`, `command`, `description`, `choices` (subset of `once`, `session`, `deny`; never `always`), `expires` (unix). Plugin 0.8.0 sends it as a notice only: `bot`, `label`, `session` (the chat to open), a short `request_id`, and `command` and `description` redacted by Hermes and clipped (either may be missing); no `choices` and no `expires`. Hikyaku shows a notification only while it is not connected and the message is under 10 minutes old, and opens the chat on tap. It cannot be answered from the notification |
 | `phone_request` | `request_id`. A phone tool call waits on the gateway; the phone fetches it over the direct connection |
 | `phone_call` | `request_id`, `session` (or none, from a scheduled job), `expires` (gateway unix), `reason`, `details` (optional). `phone_call_me` rings: the phone rings from the push alone and sends the outcome back over the direct connection once it has one |
 | `ping` | none. Sent by the plugin's "Send a test" action |

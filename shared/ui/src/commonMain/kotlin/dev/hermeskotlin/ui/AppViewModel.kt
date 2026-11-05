@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import dev.hermeskotlin.core.auth.AuthApi
 import dev.hermeskotlin.core.bots.Bot
 import dev.hermeskotlin.core.bots.BotChats
+import dev.hermeskotlin.core.bots.BotOptInStore
+import dev.hermeskotlin.core.bots.BotsApi
 import dev.hermeskotlin.core.bots.BotSession
 import dev.hermeskotlin.core.cache.OfflineCache
 import kotlinx.coroutines.CancellationException
@@ -20,6 +22,7 @@ import dev.hermeskotlin.core.gateway.AccessTokens
 import dev.hermeskotlin.core.gateway.GatewayList
 import dev.hermeskotlin.core.gateway.GatewayRepository
 import dev.hermeskotlin.core.inbox.InboxStore
+import dev.hermeskotlin.core.push.PushLogStore
 import dev.hermeskotlin.core.gateway.SavedGateway
 import dev.hermeskotlin.core.profiles.ProfileStore
 import dev.hermeskotlin.core.push.PushSetup
@@ -71,6 +74,10 @@ class AppViewModel(
     private val seen: SeenStore? = null,
     /** Each gateway's Inbox kept on the phone, which goes with the gateway. */
     private val inbox: InboxStore? = null,
+    /** Which profiles the user made into bots, so a remembered chat is reopened as one only then. */
+    private val botOptIns: BotOptInStore? = null,
+    /** Each gateway's log of accepted pushes, which goes with the gateway. */
+    private val pushLog: PushLogStore? = null,
 ) : ViewModel() {
 
     private val _route = MutableStateFlow<Route>(Route.Loading)
@@ -92,6 +99,9 @@ class AppViewModel(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, GatewayChoices())
 
     private var newChatCount = 0L
+
+    /** The gateway's launch profile, once a roster has named it. The default profile until then. */
+    private var launchProfile: String = Bot.DEFAULT
 
     init {
         viewModelScope.launch {
@@ -115,6 +125,8 @@ class AppViewModel(
             combine(links.pending, _route) { link, route -> link?.takeIf { route is Route.Chat } }
                 .filterNotNull()
                 .collect { link ->
+                    // combine can hand over a link again when only the route changed, after it was consumed: skip it.
+                    if (links.pending.value != link) return@collect
                     links.consume(link)
                     val open = (_route.value as? Route.Chat)?.target?.storedSessionId
                     val bot = link.bot
@@ -199,6 +211,7 @@ class AppViewModel(
             cache?.forgetGateway(gateway.gatewayUrl)
             gateways.remove(gateway.url)
             inbox?.forget(gateway.gatewayUrl.value)
+            pushLog?.forget(gateway.gatewayUrl.value)
             forgetUnusedAccessTokens()
             sessionsChanged.update { it + 1 }
             if (wasCurrent) {
@@ -242,9 +255,14 @@ class AppViewModel(
 
     /**
      * Opens [bot]'s permanent chat, the stored session [storedSessionId], in the bot's own profile; [readUpTo] is
-     * how far it had been read, when it has new messages since.
+     * how far it had been read, when it has new messages since. A profile the user did not make a bot opens as
+     * an ordinary session instead, and its Bot Chat is left where other agents message it.
      */
     fun openBotChat(bot: Bot, storedSessionId: String, readUpTo: Double? = null) {
+        if (!bot.hasBotIdentity) {
+            reopenProfile(chatsKey(bot.name))
+            return
+        }
         val gateway = signedInGateway() ?: return
         _route.value = Route.Chat(botChatTarget(gateway, storedSessionId, bot.name, bot.label).copy(readUpTo = readUpTo))
     }
@@ -253,15 +271,48 @@ class AppViewModel(
      * A bot's chat asked for from outside (notification, shortcut, link). With a known [storedSessionId] it
      * opens at once and is then checked against the gateway; without one it's looked up first, safely.
      * [draft] (a share to the bot) goes into its composer, after what the user had typed there.
+     * A profile that isn't a bot the user made never starts a Bot Chat: the link opens a normal session there.
      */
     private fun openBotLink(bot: String, label: String?, storedSessionId: String?, draft: ComposeDraft? = null, readUpTo: Double? = null) {
         val gateway = signedInGateway() ?: return
-        val name = label?.takeIf { it.isNotBlank() } ?: Bot(name = bot).label
-        if (storedSessionId != null) {
-            _route.value = Route.Chat(botChatTarget(gateway, storedSessionId, bot, name, draft).copy(readUpTo = readUpTo).also(::followBotChat))
-            return
-        }
         viewModelScope.launch {
+            val known = botOptIns?.known(gateway.gatewayUrl)
+            if (known?.contains(bot) != true) {
+                val profile = chatsKey(bot)
+                if (profile != currentProfile()) profiles.set(gateway.gatewayUrl, profile)
+                _chatsProfile.value = profile
+                // A reply to a cron run: the output went into this profile's existing Bot Chat, so open that, as
+                // an ordinary session. Lookup only (BotChats.find cannot start a chat); no chat found, or no
+                // answer, falls back to a new chat with the draft.
+                val existing = if (draft != null && storedSessionId == null) {
+                    try {
+                        botChats.find(bot)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        null
+                    }
+                } else {
+                    null
+                }
+                _route.value = when {
+                    // A message pushed from this profile names its session: open it, rather than leave for the list.
+                    draft == null && storedSessionId != null -> Route.Chat(
+                        ChatTarget(gateway, storedSessionId, label?.takeIf { it.isNotBlank() } ?: "Chat", profile = profile, readUpTo = readUpTo),
+                    )
+                    draft == null -> home(gateway)
+                    existing != null -> Route.Chat(
+                        ChatTarget(gateway, existing, label?.takeIf { it.isNotBlank() } ?: BotsApi.BOT_CHAT_TITLE, profile = profile, draft = draft, botChatProfile = bot),
+                    )
+                    else -> Route.Chat(newChatTarget(gateway, profile).copy(draft = draft))
+                }
+                return@launch
+            }
+            val name = label?.takeIf { it.isNotBlank() } ?: Bot(name = bot).label
+            if (storedSessionId != null) {
+                _route.value = Route.Chat(botChatTarget(gateway, storedSessionId, bot, name, draft).copy(readUpTo = readUpTo).also(::followBotChat))
+                return@launch
+            }
             connection.state.first { it is ConnectionState.Connected }
             val id = runCatching { botChats.open(Bot(name = bot)) }.getOrNull()
             when {
@@ -306,10 +357,29 @@ class AppViewModel(
     fun switchProfile(profile: String?) {
         val gateway = signedInGateway() ?: return
         if (profile == currentProfile()) return
+        reopenProfile(profile)
+    }
+
+    /**
+     * Opens [profile]'s ordinary chats, even when that profile is already the one on screen, so a Bot Chat
+     * opened by mistake is left for a normal session. Null is the launch profile.
+     */
+    fun reopenProfile(profile: String?) {
+        val gateway = signedInGateway() ?: return
         viewModelScope.launch {
-            profiles.set(gateway.gatewayUrl, profile)
+            if (profile != currentProfile()) profiles.set(gateway.gatewayUrl, profile)
             _route.value = home(gateway)
         }
+    }
+
+    /**
+     * A roster was just read. Remembers which profiles are bots the user made, and the launch profile, so the
+     * next launch can reopen a real bot's chat and will not reopen a Bot Chat for anyone else.
+     */
+    fun noteRoster(bots: List<Bot>, launch: String? = null) {
+        if (!launch.isNullOrBlank()) launchProfile = launch
+        val gateway = signedInGateway()?.gatewayUrl ?: return
+        viewModelScope.launch { botOptIns?.record(gateway, bots) }
     }
 
     /** The dashboard rejected our cookies (socket or REST): back to sign-in with a notice. */
@@ -333,6 +403,7 @@ class AppViewModel(
             auth.signOut(gateway.gatewayUrl)
             // Again: a list read that was under way may have saved itself since.
             cache?.forgetGateway(gateway.gatewayUrl)
+            pushLog?.forget(gateway.gatewayUrl.value)
             sessionsChanged.update { it + 1 }
             _route.value = Route.SignIn(gateway)
         }
@@ -363,13 +434,21 @@ class AppViewModel(
         _chatsProfile.value = profile
         val last = lastChats.get(gateway.gatewayUrl, profile)
         val bot = last?.bot
+        val known = bot?.let { botOptIns?.known(gateway.gatewayUrl) }
         val target = when {
             last == null -> newChatTarget(gateway, profile)
-            bot != null -> botChatTarget(gateway, last.sessionId, bot, last.botLabel ?: bot).also(::followBotChat)
-            else -> ChatTarget(gateway, last.sessionId, last.title, profile = profile)
+            // A Bot Chat is restored only for a profile the user made a bot. Shisha and any other profile
+            // come back as a normal session, and the hidden Bot Chat other agents use is not the one opened.
+            bot != null && known?.contains(bot) == true ->
+                botChatTarget(gateway, last.sessionId, bot, last.botLabel ?: bot).also(::followBotChat)
+            bot != null -> newChatTarget(gateway, profile).copy(preserveLastChat = known == null)
+            else -> ChatTarget(gateway, last.sessionId, last.title, profile = profile, botChatProfile = last.botChatProfile)
         }
         return Route.Chat(target)
     }
+
+    /** [name] as the chats profile stores it: null when it is the launch profile. */
+    private fun chatsKey(name: String): String? = name.takeIf { !it.equals(launchProfile, ignoreCase = true) }
 
     // The nonce makes every new chat a fresh target, even right after another empty one.
     private fun newChatTarget(gateway: SavedGateway, profile: String?) =

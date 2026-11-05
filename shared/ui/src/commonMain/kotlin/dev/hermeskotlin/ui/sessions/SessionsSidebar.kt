@@ -195,6 +195,10 @@ import dev.hermeskotlin.designsystem.danger
 import dev.hermeskotlin.designsystem.heading
 import dev.hermeskotlin.designsystem.label
 import dev.hermeskotlin.designsystem.onAccent
+import dev.hermeskotlin.designsystem.onSecondary
+import dev.hermeskotlin.designsystem.secondary
+import dev.hermeskotlin.designsystem.secondarySoft
+import dev.hermeskotlin.designsystem.secondaryText
 import dev.hermeskotlin.designsystem.radii
 import dev.hermeskotlin.designsystem.radiusMedium
 import dev.hermeskotlin.designsystem.stroke
@@ -244,6 +248,11 @@ fun SessionsSidebar(
     onOpenGateways: () -> Unit,
     onOpenSettings: () -> Unit,
     onSwitchProfile: (String?) -> Unit,
+    /**
+     * Opens [profile] as an ordinary chat, even when it is already selected. A roster row that isn't a bot
+     * the user made comes here, so its Bot Chat stays untouched.
+     */
+    onOpenProfile: (String?) -> Unit = onSwitchProfile,
     /** Opens a bot's chat, by the bot and the stored session to resume, with how far it had been read when it has new messages. */
     onOpenBot: (bot: Bot, storedSessionId: String, readUpTo: Double?) -> Unit,
     /** Opens one of a bot's other conversations, in the bot's profile, by id and title. */
@@ -522,9 +531,15 @@ fun SessionsSidebar(
                             selectedId = selectedId,
                             selectedRunning = selectedRunning,
                             nowSeconds = bots.nowSeconds(),
-                            actions = remember(bots, onOpenBot, onOpenBotSession, onNewBotChat, onEditBot, onBotDeleted) {
+                            actions = remember(bots, roster?.launch, onOpenProfile, onOpenBot, onOpenBotSession, onNewBotChat, onEditBot, onBotDeleted) {
                                 object : BotActions {
-                                    override fun open(bot: Bot) = bots.open(bot) { id, readUpTo -> onOpenBot(bot, id, readUpTo) }
+                                    override fun open(bot: Bot) {
+                                        if (!bot.hasBotIdentity) {
+                                            onOpenProfile(bot.name.takeIf { it != roster?.launch })
+                                            return
+                                        }
+                                        bots.open(bot) { id, readUpTo -> onOpenBot(bot, id, readUpTo) }
+                                    }
                                     override fun setPinned(bot: Bot, pinned: Boolean) = bots.setPinned(bot, pinned)
                                     override fun setHidden(bot: Bot, hidden: Boolean) = bots.setHidden(bot, hidden)
                                     override fun startFresh(bot: Bot) = bots.startFresh(bot) { id -> onOpenBot(bot, id, null) }
@@ -1199,9 +1214,9 @@ private fun NavTile(link: NavLink, modifier: Modifier = Modifier) {
                 Text(
                     if (link.badge > 99) "99+" else link.badge.toString(),
                     style = Theme[typography][code].copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                    color = Theme[colors][onAccent],
+                    color = Theme[colors][onSecondary],
                     modifier = Modifier
-                        .background(Theme[colors][accent], CircleShape)
+                        .background(Theme[colors][secondary], CircleShape)
                         .padding(horizontal = 6.dp, vertical = 1.dp)
                         .semantics { contentDescription = "${link.badge} unread" },
                 )
@@ -1787,7 +1802,8 @@ internal fun SessionRow(
     val toneColor = Theme[colors][
         when (tone) {
             RowTone.Approval, RowTone.Question -> warning
-            RowTone.Running, RowTone.Reply -> accentText
+            RowTone.Running -> accentText
+            RowTone.Reply -> secondaryText
             RowTone.Draft -> textTertiary
             RowTone.Idle -> textMuted
         },
@@ -1888,7 +1904,8 @@ private val PROJECT_TAG_MAX_WIDTH = 112.dp
 private fun StatusDisc(tone: RowTone, color: Color) {
     val fill = when (tone) {
         RowTone.Approval, RowTone.Question -> Theme[colors][warningSoft]
-        RowTone.Running, RowTone.Reply -> Theme[colors][accentSoft]
+        RowTone.Running -> Theme[colors][accentSoft]
+        RowTone.Reply -> Theme[colors][secondarySoft]
         RowTone.Draft, RowTone.Idle -> Theme[colors][surface2]
     }
     Box(Modifier.size(28.dp).background(fill, CircleShape).clearAndSetSemantics { }, contentAlignment = Alignment.Center) {

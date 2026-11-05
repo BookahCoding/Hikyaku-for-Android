@@ -38,6 +38,7 @@ import dev.hermeskotlin.core.profiles.ProfileStore
 import dev.hermeskotlin.core.push.NtfyClient
 import dev.hermeskotlin.core.inbox.InboxLinks
 import dev.hermeskotlin.core.inbox.InboxStore
+import dev.hermeskotlin.core.push.PushLogStore
 import dev.hermeskotlin.core.push.NotificationProfiles
 import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.push.PushApi
@@ -52,6 +53,7 @@ import dev.hermeskotlin.core.journey.JourneyApi
 import dev.hermeskotlin.core.pet.PetApi
 import dev.hermeskotlin.core.bots.BotChats
 import dev.hermeskotlin.core.bots.BotHealth
+import dev.hermeskotlin.core.bots.BotOptInStore
 import dev.hermeskotlin.core.bots.BotsApi
 import dev.hermeskotlin.core.projects.ProjectsApi
 import dev.hermeskotlin.core.threads.ThreadsApi
@@ -101,6 +103,7 @@ val coreModule = module {
     single { InsightsApi(get()) }
     single { ConfigApi(get()) }
     single { LastChatStore(get()) }
+    single { BotOptInStore(get()) }
     single { DraftStore(get()) }
     single { ProfilesApi(get()) }
     single { ProfileStore(get()) }
@@ -156,5 +159,6 @@ val coreModule = module {
     // An update of the plugin never reaches into a profile that isn't on that list.
     single { PushApi(get(), mayUpdateCopy = { profile -> get<NotificationProfiles>().allowsHere(profile) }) }
     single { InboxStore(get(), gate = get<NotificationProfiles>()) }
+    single { PushLogStore(get()) }
     single { InboxLinks() }
 }

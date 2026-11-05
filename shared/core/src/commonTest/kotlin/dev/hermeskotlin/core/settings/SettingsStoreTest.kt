@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class SettingsStoreTest {
 
@@ -16,12 +17,12 @@ class SettingsStoreTest {
         val first = SettingsStore(disk, backgroundScope)
         assertEquals(AppSettings(), first.settings.filterNotNull().first())
 
-        first.update { it.copy(theme = ThemeMode.Dark, pureBlack = true, textSize = TextSize.Large) }
+        first.update { it.copy(colorMode = ThemeMode.Dark, pureBlack = true, textSize = TextSize.Large) }
         advanceUntilIdle()
 
         val reopened = SettingsStore(disk, backgroundScope)
         val restored = reopened.settings.filterNotNull().first()
-        assertEquals(ThemeMode.Dark, restored.theme)
+        assertEquals(ThemeMode.Dark, restored.colorMode)
         assertEquals(true, restored.pureBlack)
         assertEquals(TextSize.Large, restored.textSize)
     }
@@ -92,16 +93,16 @@ class SettingsStoreTest {
     fun theAccentIsRememberedAndAnUnknownOneKeepsTheOtherSettings() = runTest {
         val disk = InMemoryKeyValueStore()
         val first = SettingsStore(disk, backgroundScope)
-        assertEquals(DEFAULT_ACCENT, first.settings.filterNotNull().first().accent)
-        first.update { it.copy(accent = "Teal") }
+        assertEquals(DEFAULT_THEME, first.settings.filterNotNull().first().theme)
+        first.update { it.copy(theme = "Teal") }
         advanceUntilIdle()
-        assertEquals("Teal", SettingsStore(disk, backgroundScope).settings.filterNotNull().first().accent)
+        assertEquals("Teal", SettingsStore(disk, backgroundScope).settings.filterNotNull().first().theme)
 
-        // A preset from a newer version is only a name here; the rest still reads.
+        // A theme from a newer version is only a name here; the rest still reads.
         disk.put("settings.v1", """{"theme":"Dark","accent":"Neon"}""")
         val restored = SettingsStore(disk, backgroundScope).settings.filterNotNull().first()
-        assertEquals(ThemeMode.Dark, restored.theme)
-        assertEquals("Neon", restored.accent)
+        assertEquals(ThemeMode.Dark, restored.colorMode)
+        assertEquals("Neon", restored.theme)
     }
 
     @Test
@@ -159,7 +160,7 @@ class SettingsStoreTest {
         advanceUntilIdle()
         val reopened = SettingsStore(disk, backgroundScope)
         assertEquals(true, reopened.settings.filterNotNull().first().showLinkPreviews)
-        assertEquals(ThemeMode.Dark, reopened.settings.value?.theme)
+        assertEquals(ThemeMode.Dark, reopened.settings.value?.colorMode)
 
         reopened.update { it.copy(showLinkPreviews = false) }
         advanceUntilIdle()
@@ -170,5 +171,38 @@ class SettingsStoreTest {
     fun unreadableStoredSettingsFallBackToDefaults() = runTest {
         val disk = InMemoryKeyValueStore().apply { put("settings.v1", """{"theme":"Neon"}""") }
         assertEquals(AppSettings(), SettingsStore(disk, backgroundScope).settings.filterNotNull().first())
+    }
+
+    @Test
+    fun theDefaultThemeIsUkiyoeAndAnOldAccentNameIsKeptAsStored() = runTest {
+        assertEquals("Ukiyo-e", DEFAULT_THEME)
+        assertEquals("Ukiyo-e", AppSettings().theme)
+        val disk = InMemoryKeyValueStore().apply { put("settings.v1", """{"accent":"Teal"}""") }
+        assertEquals(AppSettings(theme = "Teal"), SettingsStore(disk, backgroundScope).settings.filterNotNull().first())
+    }
+
+    @Test
+    fun settingsSavedBeforeTheRenameStillLoad() = runTest {
+        val disk = InMemoryKeyValueStore().apply { put("settings.v1", """{"theme":"Dark","accent":"Teal"}""") }
+        val loaded = SettingsStore(disk, backgroundScope).settings.filterNotNull().first()
+        assertEquals(ThemeMode.Dark, loaded.colorMode)
+        assertEquals("Teal", loaded.theme)
+    }
+
+    @Test
+    fun theColorModeAndThemeAreSavedUnderTheirOldKeys() = runTest {
+        val disk = InMemoryKeyValueStore()
+        val store = SettingsStore(disk, backgroundScope)
+        store.settings.filterNotNull().first()
+        store.update { it.copy(colorMode = ThemeMode.Light, theme = "Teal") }
+        advanceUntilIdle()
+
+        val restored = SettingsStore(disk, backgroundScope).settings.filterNotNull().first()
+        val raw = disk.get("settings.v1").orEmpty()
+        assertTrue(""""theme":"Light"""" in raw, raw)
+        assertTrue(""""accent":"Teal"""" in raw, raw)
+        assertTrue("colorMode" !in raw, raw)
+        assertEquals(ThemeMode.Light, restored.colorMode)
+        assertEquals("Teal", restored.theme)
     }
 }

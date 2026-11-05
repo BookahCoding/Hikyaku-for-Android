@@ -1,0 +1,29 @@
+diff --git a/hermes_cli/cli_loops_mixin.py b/hermes_cli/cli_loops_mixin.py
+index 3f4cf2b22d..582dc961d4 100644
+--- a/hermes_cli/cli_loops_mixin.py
++++ b/hermes_cli/cli_loops_mixin.py
+@@ -593,7 +593,9 @@ class CLILoopsMixin:
+         TUI slash worker's shadow CLI) main's in-process managers apply."""
+         from hermes_cli.gateway_session_store import GatewaySessionStore
+         store = getattr(self, "_session_db", None)
+-        if not isinstance(store, GatewaySessionStore):
++        # LOCAL PATCH (slash-worker-heartbeat): the slash worker never opens a gateway session, so it must use
++        # the in-process managers, as this docstring says. Otherwise /heartbeat and /loop report "no active session".
++        if getattr(self, "is_slash_worker", False) or not isinstance(store, GatewaySessionStore):
+             return False, None
+         return True, store.connection if getattr(self, "_gateway_session_open", False) else None
+ 
+diff --git a/hermes_cli/gateway_automation.py b/hermes_cli/gateway_automation.py
+index 435ce3e115..a8697bf9ff 100644
+--- a/hermes_cli/gateway_automation.py
++++ b/hermes_cli/gateway_automation.py
+@@ -272,6 +272,9 @@ def gateway_connection(cli):
+     managers: tests and the TUI slash worker's shadow CLI)."""
+     from hermes_cli.gateway_session_store import GatewaySessionStore
+     store = getattr(cli, "_session_db", None)
++    # LOCAL PATCH (slash-worker-heartbeat): see cli_loops_mixin._automation_connection.
++    if getattr(cli, "is_slash_worker", False):
++        return None
+     if isinstance(store, GatewaySessionStore) and getattr(cli, "_gateway_session_open", False):
+         return store.connection
+     return None

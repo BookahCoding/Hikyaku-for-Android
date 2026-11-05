@@ -84,6 +84,7 @@ import dev.hermeskotlin.core.inbox.Follow
 import dev.hermeskotlin.core.inbox.InboxRun
 import dev.hermeskotlin.designsystem.accentSoft
 import dev.hermeskotlin.designsystem.accentText
+import dev.hermeskotlin.designsystem.secondaryText
 import dev.hermeskotlin.designsystem.body
 import dev.hermeskotlin.designsystem.bodySmall
 import dev.hermeskotlin.designsystem.code
@@ -184,19 +185,26 @@ internal fun InboxPage(
             viewModel.dismissMessage()
         }
     }
-    PlatformBackHandler(enabled = visible && state.open != null) { viewModel.closeRun() }
+    PlatformBackHandler(enabled = visible && state.openMessage != null) { viewModel.closeMessage() }
+    PlatformBackHandler(enabled = visible && state.openMessage == null && state.open != null) { viewModel.closeRun() }
     PlatformBackHandler(enabled = visible && state.open == null && state.choosing) { viewModel.closeJobs() }
     PlatformBackHandler(enabled = visible && state.open == null && !state.choosing && state.grouping) { viewModel.closeGroups() }
     // In a folder, back goes to the folders before it leaves the Inbox.
     val inFolder = state.groups.layout == InboxLayout.Folders && state.shownFilter != InboxFilter.All
-    PlatformBackHandler(enabled = visible && state.open == null && !state.choosing && !state.grouping && inFolder) {
+    PlatformBackHandler(enabled = visible && state.open == null && !state.choosing && !state.grouping && inFolder && state.tab == InboxTab.Runs) {
         viewModel.setFilter(InboxFilter.All)
     }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             when {
-                state.open != null -> RunView(state.open, state.nameOf(state.open), state.openLoading, state.openNote, onBack = viewModel::closeRun)
+                state.openMessage != null -> MessageView(
+                    state.openMessage,
+                    state.nameOf(state.openMessage),
+                    onBack = viewModel::closeMessage,
+                    onOpenChat = { viewModel.openMessageChat(state.openMessage) },
+                )
+                state.open != null -> RunView(state.open, state.nameOf(state.open), state.openLoading, state.openNote, onBack = viewModel::closeRun, onReply = { viewModel.reply(state.open) })
                 state.choosing -> FollowView(state, viewModel)
                 state.grouping -> GroupsView(state, viewModel)
                 else -> InboxView(state, viewModel, onBack = onBack, onOpenSettings = onOpenSettings, foldersList = foldersList, runsList = runsList)
@@ -220,8 +228,10 @@ internal fun InboxView(
     runsList: LazyListState = rememberLazyListState(),
 ) {
     val unread = state.unread
+    val onMessages = state.tab == InboxTab.Messages
+    val shownUnread = if (onMessages) state.unreadMessages else unread
     val folders = state.groups.layout == InboxLayout.Folders
-    val inFolder = folders && state.shownFilter != InboxFilter.All
+    val inFolder = folders && state.shownFilter != InboxFilter.All && !onMessages
     val folderName = when (val f = state.shownFilter) {
         is InboxFilter.Job -> state.chips.firstOrNull { it.filter == f }?.label
         is InboxFilter.Group -> f.name ?: "Other"
@@ -232,6 +242,11 @@ internal fun InboxView(
         if (inFolder) folderName ?: "Inbox" else "Inbox",
         onBack = if (inFolder) ({ viewModel.setFilter(InboxFilter.All) }) else onBack,
         subtitle = when {
+            onMessages -> when {
+                state.messages.isEmpty() -> null
+                state.unreadMessages > 0 -> "${state.unreadMessages} unread · pushed to this phone"
+                else -> "Pushed to this phone"
+            }
             state.runs.isEmpty() -> null
             state.shownFilter is InboxFilter.Job -> state.shown.size.let { "$it ${if (it == 1) "report" else "reports"} from ${state.nameOf(state.shown.first())}" }
             state.shownFilter is InboxFilter.Group -> state.shown.size.let { n ->
@@ -241,11 +256,24 @@ internal fun InboxView(
             else -> "From the jobs you follow"
         },
     ) {
-        if (unread > 0) IconButton(Lucide.CheckCheck, contentDescription = "Mark all read", onClick = viewModel::markAllRead)
+        if (shownUnread > 0) IconButton(Lucide.CheckCheck, contentDescription = "Mark all read", onClick = viewModel::markAllRead)
         IconButton(Lucide.FolderTree, contentDescription = "Folders and groups", onClick = viewModel::openGroups)
         IconButton(Lucide.Settings2, contentDescription = "Choose jobs", onClick = viewModel::chooseJobs)
     }
     state.block?.let { BlockNotice(it, onOpenSettings) }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Chip("Runs", selected = state.tab == InboxTab.Runs, onClick = { viewModel.setTab(InboxTab.Runs) }, count = unread.takeIf { it > 0 })
+        Chip(
+            "Messages",
+            selected = state.tab == InboxTab.Messages,
+            onClick = { viewModel.setTab(InboxTab.Messages) },
+            count = state.unreadMessages.takeIf { it > 0 },
+        )
+    }
+    if (state.tab == InboxTab.Messages) {
+        MessageLogView(state.messages, state.readMessages, state::nameOf, viewModel::openMessage)
+        return
+    }
     var renaming by remember { mutableStateOf<JobChip?>(null) }
     // Folders are the way in on the folder layout; the chips belong to the single list.
     if (!folders) FilterChips(state, onSelect = viewModel::setFilter, onRename = { renaming = it })
@@ -505,7 +533,7 @@ private fun RunCard(run: InboxRun, name: String, unread: Boolean, onClick: () ->
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 if (unread) {
-                    Box(Modifier.size(8.dp).background(Theme[colors][accentText], CircleShape).clearAndSetSemantics { contentDescription = "Unread" })
+                    Box(Modifier.size(8.dp).background(Theme[colors][secondaryText], CircleShape).clearAndSetSemantics { contentDescription = "Unread" })
                 }
             }
             Text(
@@ -541,27 +569,42 @@ private fun MoreRow(loading: Boolean, error: String?, onClick: () -> Unit) {
 
 /** One run in full, as Markdown. */
 @Composable
-internal fun RunView(run: InboxRun, name: String, loading: Boolean, note: RunNote?, onBack: () -> Unit) {
-    SubpageHeader(name, onBack = onBack, subtitle = (if (run.failed) "Failed · " else "") + messageTime(run.at.toDouble(), uses24HourClock()))
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        if (note != null) {
-            Text(
-                when (note) {
-                    RunNote.Offline -> "Only the start of this report is on the phone. Connect to the gateway to read the rest."
-                    RunNote.Gone -> "Only the start of this report is on the phone: the gateway no longer has it."
-                    RunNote.Failed -> "Only the start of this report is on the phone: the gateway couldn't send the rest."
-                },
-                style = Theme[typography][bodySmall],
-                color = Theme[colors][textTertiary],
+internal fun RunView(run: InboxRun, name: String, loading: Boolean, note: RunNote?, onBack: () -> Unit, onReply: () -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        SubpageHeader(name, onBack = onBack, subtitle = (if (run.failed) "Failed · " else "") + messageTime(run.at.toDouble(), uses24HourClock()))
+        // Only the report scrolls; the Reply bar below it stays put.
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (note != null) {
+                Text(
+                    when (note) {
+                        RunNote.Offline -> "Only the start of this report is on the phone. Connect to the gateway to read the rest."
+                        RunNote.Gone -> "Only the start of this report is on the phone: the gateway no longer has it."
+                        RunNote.Failed -> "Only the start of this report is on the phone: the gateway couldn't send the rest."
+                    },
+                    style = Theme[typography][bodySmall],
+                    color = Theme[colors][textTertiary],
+                )
+            }
+            if (loading && run.text.isEmpty()) ListSkeleton() else MarkdownText(remember(run.text) { keepLineBreaks(run.text) })
+        }
+        // Bottom padding leaves room for the sidebar's New chat button, which lies over the page's foot.
+        Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)) {
+            Button(
+                if (run.failed) "Ask about this" else "Reply",
+                onClick = onReply,
+                modifier = Modifier.fillMaxWidth(),
+                variant = ButtonVariant.Secondary,
+                size = ButtonSize.Medium,
+                enabled = !loading,
             )
         }
-        if (loading && run.text.isEmpty()) ListSkeleton() else MarkdownText(remember(run.text) { keepLineBreaks(run.text) })
     }
 }
 

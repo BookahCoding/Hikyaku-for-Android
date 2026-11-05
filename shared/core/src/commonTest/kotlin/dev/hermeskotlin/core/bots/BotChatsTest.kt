@@ -7,6 +7,7 @@ import kotlinx.coroutines.yield
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class BotChatsTest {
@@ -35,6 +36,27 @@ class BotChatsTest {
     }
 
     private fun bot(name: String, chat: BotSession? = null) = Bot(name = name, canonicalSession = chat)
+
+    @Test
+    fun findReturnsTheLiveEndOfAnExistingChatAndStartsNothing() = runTest {
+        val backend = FakeBackend().apply { chats["default"] = BotSession(id = "root", resolvedId = "tip") }
+        assertEquals("tip", BotChats(backend).find("default"))
+        assertEquals(0, backend.starts)
+    }
+
+    @Test
+    fun findReturnsNullForAProfileWithoutAChatAndStartsNothing() = runTest {
+        val backend = FakeBackend()
+        assertNull(BotChats(backend).find("default"))
+        assertEquals(0, backend.starts)
+    }
+
+    @Test
+    fun aFailedFindIsAnErrorAndStartsNothing() = runTest {
+        val backend = FakeBackend().apply { lookupFails = true }
+        assertFailsWith<BotChatUnavailableException> { BotChats(backend).find("default") }
+        assertEquals(0, backend.starts)
+    }
 
     @Test
     fun opensTheLiveEndOfAnExistingChat() = runTest {

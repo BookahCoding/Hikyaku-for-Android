@@ -206,5 +206,48 @@ class ModelPickerTest {
         assertEquals(listOf("Nous Portal", "OpenRouter", "Anthropic", "ChatGPT subscription"), catalog.pickerSections("", PickerScope.All).map { it.title })
     }
 
+    private val withLocal = ModelCatalog(
+        providers = listOf(
+            provider("nous", "Nous Portal", "anthropic/claude-opus-5.5"),
+            ModelProvider("ollama", "Ollama", listOf(ModelOption("llama3", "ollama")), keyless = true),
+            ModelProvider("custom", "Custom", listOf(ModelOption("qwen-local", "custom", price = "Free")), keyless = true),
+        ),
+    ).usable()
+
+    @Test
+    fun localAndCustomProvidersShareOneLocalSection() {
+        val sections = withLocal.pickerSections("", PickerScope.All)
+        assertEquals(listOf("Nous Portal", LOCAL_SECTION), sections.map { it.title })
+        assertEquals(listOf("ollama", "custom"), sections[1].models.map { it.provider })
+        // A local model the gateway priced free stays in the Local section, not the free one.
+        assertEquals(listOf("llama3", "qwen-local"), sections[1].models.flatMap { row -> row.variants.map { it.id } })
+        assertEquals(
+            sections[1].models.flatMap { row -> row.variants.map { it.id } },
+            withLocal.pickerSections("", PickerScope.Local).single().models.flatMap { row -> row.variants.map { it.id } },
+        )
+        // The Free chip is cloud providers' free models only, as in All; the free-priced local one is Local.
+        assertTrue(withLocal.pickerSections("", PickerScope.Free).isEmpty())
+    }
+
+    @Test
+    fun aLocalOnlyCatalogHasJustTheLocalSection() {
+        val local = withLocal.copy(providers = withLocal.providers.filter { it.keyless })
+        val sections = local.pickerSections("", PickerScope.All)
+        assertEquals(listOf(LOCAL_SECTION), sections.map { it.title })
+        assertEquals(listOf("llama3", "qwen-local"), sections.single().models.flatMap { row -> row.variants.map { it.id } })
+    }
+
+    @Test
+    fun aSearchInAllStillFindsLocalModels() {
+        val sections = withLocal.pickerSections("llama", PickerScope.All)
+        assertEquals(listOf("Llama3"), sections.single().models.map { it.name })
+    }
+
+    @Test
+    fun aSearchInTheLocalScopeKeepsTheProviderTags() {
+        val rows = withLocal.pickerSections("l", PickerScope.Local).single().models
+        assertEquals(setOf("ollama", "custom"), rows.map { it.provider }.toSet())
+    }
+
     private fun provider(slug: String, name: String, vararg ids: String) = ModelProvider(slug, name, ids.map { ModelOption(id = it, provider = slug) })
 }

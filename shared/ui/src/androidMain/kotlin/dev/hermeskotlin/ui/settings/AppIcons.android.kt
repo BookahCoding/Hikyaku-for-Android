@@ -33,7 +33,7 @@ private fun Context.findActivity(): Activity? = when (this) {
 }
 
 /**
- * Each icon is a launcher alias of the app's activity in its AndroidManifest.xml, exactly one enabled: Blue's is
+ * Each icon is a launcher alias of the app's activity in its AndroidManifest.xml, exactly one enabled: Ukiyo-e's is
  * MainActivity (the activity's old name, so home-screen icons from before stay), the others AppIcon<name>.
  */
 private class AndroidAppIcons(
@@ -44,8 +44,8 @@ private class AndroidAppIcons(
     private val packages = context.packageManager
 
     // The launcher entry Android opens Herald from is the enabled alias: one lookup instead of one per icon.
-    override val current: AppIcon = packages.getLaunchIntentForPackage(context.packageName)?.component?.className
-        .let { entry -> AppIcon.entries.firstOrNull { it.aliasClass == entry } } ?: AppIcon.Blue
+    // Read each time: a pending theme icon switched on when the app was left changes it behind this object.
+    override val current: AppIcon get() = shownIcon(context)
 
     override suspend fun picture(icon: AppIcon, sizePx: Int): ImageBitmap? = withContext(Dispatchers.Default) {
         runCatching {
@@ -57,18 +57,13 @@ private class AndroidAppIcons(
         }.getOrNull()
     }
 
+    override fun applyWhenLeaving(icon: AppIcon) = pendingIcon(context).set(icon)
+
     override fun apply(icon: AppIcon) {
-        if (icon == current) return
-        // The new one is turned on before the others go off, so the launcher always has an entry for Herald.
-        val changes = listOf(icon to PackageManager.COMPONENT_ENABLED_STATE_ENABLED) +
-            AppIcon.entries.filter { it != icon }.map { it to PackageManager.COMPONENT_ENABLED_STATE_DISABLED }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packages.setComponentEnabledSettings(
-                changes.map { (it, state) -> PackageManager.ComponentEnabledSetting(component(it), state, PackageManager.DONT_KILL_APP) },
-            )
-        } else {
-            changes.forEach { (it, state) -> packages.setComponentEnabledSetting(component(it), state, PackageManager.DONT_KILL_APP) }
-        }
+        // An icon chosen by hand here must not be overwritten by a theme pick still waiting for the app to be left.
+        pendingIcon(context).clear()
+        if (icon == shownIcon(context)) return
+        switchTo(context, icon)
         // Android closes the task the old icon opened once that alias is off, and Herald's activity is singleTask,
         // so it would reopen in that same task. Close it first, then open Herald in a new task from the new icon,
         // which Android leaves alone: a restart, not the app disappearing.
@@ -85,7 +80,47 @@ private class AndroidAppIcons(
         onChange()
     }
 
-    private fun component(icon: AppIcon) = ComponentName(context.packageName, icon.aliasClass)
+    private fun component(icon: AppIcon) = component(context, icon)
+}
+
+private fun component(context: Context, icon: AppIcon) = ComponentName(context.packageName, icon.aliasClass)
+
+/** The icon whose alias is the launcher entry Android opens Herald from: one lookup instead of one per icon. */
+private fun shownIcon(context: Context): AppIcon =
+    context.packageManager.getLaunchIntentForPackage(context.packageName)?.component?.className
+        .let { entry -> AppIcon.entries.firstOrNull { it.aliasClass == entry } } ?: AppIcon.Ukiyoe
+
+/** Turns [icon]'s alias on and all the others off, with no restart; [AndroidAppIcons.apply] adds that. */
+private fun switchTo(context: Context, icon: AppIcon) {
+    val packages = context.packageManager
+    // The new one is turned on before the others go off, so the launcher always has an entry for Herald.
+    val changes = listOf(icon to PackageManager.COMPONENT_ENABLED_STATE_ENABLED) +
+        AppIcon.entries.filter { it != icon }.map { it to PackageManager.COMPONENT_ENABLED_STATE_DISABLED }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        packages.setComponentEnabledSettings(
+            changes.map { (it, state) -> PackageManager.ComponentEnabledSetting(component(context, it), state, PackageManager.DONT_KILL_APP) },
+        )
+    } else {
+        changes.forEach { (it, state) -> packages.setComponentEnabledSetting(component(context, it), state, PackageManager.DONT_KILL_APP) }
+    }
+}
+
+/** What a theme pick asked for, kept in preferences so it outlives the Settings screen and the process. */
+private fun pendingIcon(context: Context): PendingIcon {
+    val prefs = context.applicationContext.getSharedPreferences("app_icon", Context.MODE_PRIVATE)
+    return PendingIcon(object : PendingIconStore {
+        override fun load() = prefs.getString("pending_icon", null)
+        override fun save(name: String?) = prefs.edit().apply { if (name == null) remove("pending_icon") else putString("pending_icon", name) }.apply()
+    })
+}
+
+/**
+ * Switches to the icon a theme pick queued, if any and not already shown, the way [AppIcons.apply] does but with no
+ * restart: called when the app goes to the background.
+ */
+fun flushPendingIcon(context: Context) {
+    val icon = pendingIcon(context).take(shownIcon(context)) ?: return
+    switchTo(context, icon)
 }
 
 /**
@@ -105,4 +140,39 @@ object AppIconRestart {
  * the app module's namespace, not its application id, which Herald Dev's suffix changes.
  */
 internal val AppIcon.aliasClass: String
-    get() = "dev.hermeskotlin.android." + if (this == AppIcon.Blue) "MainActivity" else "AppIcon$name"
+    get() = "dev.hermeskotlin.android." + if (this == AppIcon.Ukiyoe) "MainActivity" else "AppIcon$name"
+
+/**
+ * Which alias to switch on so Herald has a launcher entry, or null if one is on. [states] is each alias's
+ * PackageManager enabled state; DEFAULT means the manifest decides, where only [AppIcon.Ukiyoe] is enabled. An update
+ * that drops the alias the user had picked (a retired colour) leaves MainActivity switched off by the app, which
+ * Android keeps across updates, and no alias on.
+ */
+internal fun launcherIconToEnable(states: Map<AppIcon, Int>): AppIcon? {
+    val on = AppIcon.entries.any { icon ->
+        when (states[icon] ?: PackageManager.COMPONENT_ENABLED_STATE_DEFAULT) {
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED -> true
+            PackageManager.COMPONENT_ENABLED_STATE_DEFAULT -> icon == AppIcon.Ukiyoe
+            else -> false
+        }
+    }
+    return if (on) null else AppIcon.Ukiyoe
+}
+
+/** Run at start: puts Herald back in the launcher if no icon alias is on (see [launcherIconToEnable]). */
+fun ensureALauncherIcon(context: Context) {
+    // Never crash the app or a receiver over this: an unknown component throws IllegalArgumentException.
+    runCatching {
+        val packages = context.packageManager
+        val states = AppIcon.entries.associateWith {
+            packages.getComponentEnabledSetting(ComponentName(context.packageName, it.aliasClass))
+        }
+        launcherIconToEnable(states)?.let {
+            packages.setComponentEnabledSetting(
+                ComponentName(context.packageName, it.aliasClass),
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                PackageManager.DONT_KILL_APP,
+            )
+        }
+    }
+}

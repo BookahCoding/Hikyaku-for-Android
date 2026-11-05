@@ -67,7 +67,7 @@ class WearBridgeService : WearableListenerService() {
                 val cached = WearJson.decode<PhoneStatusRequest>(event.data)?.accentRevision
                 scope.launch {
                     // Waited for: a watch's ask often starts Herald, and the stored settings are still being read then.
-                    val accent = watchAccent(settings.settings.filterNotNull().first().accent)
+                    val accent = watchAccent(settings.settings.filterNotNull().first().theme)
                     relay.status(node, accent = accent.updateFor(cached))
                 }
             }

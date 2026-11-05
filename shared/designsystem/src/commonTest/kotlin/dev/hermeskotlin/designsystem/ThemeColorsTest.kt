@@ -10,14 +10,14 @@ class ThemeColorsTest {
         background, surface, surface2, surface3, well, thumb, surfaceElevated, input, sidebar,
         userBubble, userBubbleStroke, onUserBubble,
         text, textSecondary, textTertiary, textMuted,
-        accent, onAccent, accentText, accentSoft, inverse, onInverse,
+        accent, onAccent, accentText, accentSoft, secondary, onSecondary, secondaryText, secondarySoft, inverse, onInverse,
         stroke, strokeStrong,
         danger, success, warning, dangerSoft, successSoft, warningSoft,
     )
 
     @Test
     fun everySchemeDefinesEveryColorToken() {
-        for (palette in AccentPalette.all) {
+        for (palette in AppTheme.all) {
             assertEquals(allTokens, lightColors(palette.light).keys, "${palette.name} light")
             assertEquals(allTokens, darkColors(palette.dark).keys, "${palette.name} dark")
             assertEquals(allTokens, pureBlackColors(palette.black).keys, "${palette.name} pure black")
@@ -26,7 +26,7 @@ class ThemeColorsTest {
 
     @Test
     fun theUsersBubbleCarriesItsOwnTextColor() {
-        for (palette in AccentPalette.all) {
+        for (palette in AppTheme.all) {
             for (scheme in listOf(lightColors(palette.light), darkColors(palette.dark), pureBlackColors(palette.black))) {
                 assertEquals(scheme.getValue(accent), scheme.getValue(userBubble), palette.name)
                 assertEquals(scheme.getValue(onAccent), scheme.getValue(onUserBubble), palette.name)

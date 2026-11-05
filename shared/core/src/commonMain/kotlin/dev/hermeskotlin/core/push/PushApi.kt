@@ -521,14 +521,18 @@ class PushApi(
 
     companion object {
         const val PLUGIN_COMMAND = "herald-push"
-        /** This app's own plugin, not the original: it is the one that limits a phone to its list of profiles. */
-        const val PLUGIN_REPO = "https://github.com/BookahCoding/hermes-herald-push"
+        /**
+         * This app's own plugin, continued from Giton22's original: it limits a phone to its list of profiles and
+         * delivers pushes through a retrying queue. Hermes names the install after the manifest (`herald-push`),
+         * not the repository, so the plugin keeps its command, data folder and settings key.
+         */
+        const val PLUGIN_REPO = "https://github.com/BookahCoding/hikyaku-push"
 
         /** The plugin commit this Herald was built and reviewed against. */
-        const val PLUGIN_REF = "c5142436f5a2b5d7dd73f8c85718058301e1ad71"
+        const val PLUGIN_REF = "07309682f8f637e9ec44467259976ceeac3d96fa"
 
         /** The version at [PLUGIN_REF]: an older copy on the gateway is offered this as an update. */
-        const val PLUGIN_VERSION = "0.6.0"
+        const val PLUGIN_VERSION = "0.8.0"
 
         /** The oldest plugin this Herald can talk to at all, which is how far back "turn everything off" still reaches. */
         const val MIN_PLUGIN_VERSION = "0.1.1"

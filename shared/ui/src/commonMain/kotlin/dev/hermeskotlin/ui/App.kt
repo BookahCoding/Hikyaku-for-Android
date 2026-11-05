@@ -28,8 +28,8 @@ import com.composeunstyled.theme.Theme
 import dev.hermeskotlin.core.settings.AppSettings
 import dev.hermeskotlin.core.settings.SettingsStore
 import dev.hermeskotlin.core.settings.ThemeMode
-import dev.hermeskotlin.designsystem.AccentPalette
-import dev.hermeskotlin.designsystem.LocalAccentPalette
+import dev.hermeskotlin.designsystem.AppTheme
+import dev.hermeskotlin.designsystem.LocalAppTheme
 import dev.hermeskotlin.designsystem.PureBlack
 import dev.hermeskotlin.designsystem.hermesTheme
 import dev.hermeskotlin.designsystem.components.LocalCodeWrap
@@ -123,7 +123,7 @@ fun App(
 ) {
     // Nothing is drawn until the stored settings are read, so the first frame has the right theme.
     val settings = koinInject<SettingsStore>().settings.collectAsStateWithLifecycle().value ?: return
-    val dark = when (settings.theme) {
+    val dark = when (settings.colorMode) {
         ThemeMode.System -> isSystemInDarkTheme()
         ThemeMode.Light -> false
         ThemeMode.Dark -> true
@@ -135,10 +135,10 @@ fun App(
         else -> ColorScheme.Dark
     }
     val density = LocalDensity.current
-    val palette = AccentPalette.named(settings.accent)
+    val palette = AppTheme.named(settings.theme)
     hermesTheme(palette)(scheme) {
         CompositionLocalProvider(
-            LocalAccentPalette provides palette,
+            LocalAppTheme provides palette,
             LocalAppSettings provides settings,
             LocalCodeWrap provides settings.wrapCode,
             LocalGlow provides settings.glow,
@@ -372,9 +372,15 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
     val openIds = setOfNotNull(openSessionId, route.target.storedSessionId, openBot?.canonicalSession?.id, openBot?.canonicalSession?.openId)
     LaunchedEffect(openIds) { others.setOpenChat(openIds) }
     // Bot Chats are hidden sessions, so the chat list doesn't have them; the roster does, with what's unread.
+    // A roster names which profiles are bots the user made, so the next launch won't reopen anyone else's Bot Chat.
+    LaunchedEffect(roster.loading, roster.error, roster.unsupported, roster.all, profileRoster?.launch, profileRoster?.launchKnown) {
+        if (!roster.loading && roster.error == null && !roster.unsupported) {
+            app.noteRoster(roster.all, profileRoster?.takeIf { it.launchKnown }?.launch)
+        }
+    }
     LaunchedEffect(roster.all, roster.unread) {
         others.setBotChats(
-            roster.all.filterNot { it.meta.hidden }.mapNotNull { bot ->
+            roster.all.filter { it.hasBotIdentity && !it.meta.hidden }.mapNotNull { bot ->
                 val chat = bot.canonicalSession ?: return@mapNotNull null
                 val id = chat.openId ?: return@mapNotNull null
                 OtherChatRow(
@@ -393,11 +399,20 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
         others.otherChatEvents.collect { if (it.waiting) haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
     }
 
+    /** [name] as the chats list stores a profile: null for the one the gateway launches as. */
+    fun chatsProfileOf(name: String): String? {
+        val launch = profileRoster?.takeIf { it.launchKnown }?.launch ?: Bot.DEFAULT
+        return name.takeIf { !it.equals(launch, ignoreCase = true) }
+    }
+
     /** Opens another chat as a sidebar tap does, with where its new messages start. */
+
     fun openOther(id: String, title: String, bot: String?) {
         val botOf = bot?.let { name -> roster.all.firstOrNull { it.name == name } }
         // A bot's chat opens as its sidebar row does, which finds where its new messages start.
-        if (botOf != null) bots.open(botOf) { storedId, readUpTo -> app.openBotChat(botOf, storedId, readUpTo) }
+        // A profile that only looks like a bot opens as a normal session; its Bot Chat stays put.
+        if (botOf != null && botOf.hasBotIdentity) bots.open(botOf) { storedId, readUpTo -> app.openBotChat(botOf, storedId, readUpTo) }
+        else if (botOf != null) app.reopenProfile(chatsProfileOf(botOf.name))
         else app.openSession(id, title, others.openListed(id))
         closeDrawerToChat()
     }
@@ -432,8 +447,13 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
                     app.switchProfile(it)
                     closeDrawerToChat()
                 },
+                onOpenProfile = { profile ->
+                    app.reopenProfile(profile)
+                    closeDrawerToChat()
+                },
                 onOpenBot = { bot, storedSessionId, readUpTo ->
-                    if (storedSessionId != openSessionId || route.target.bot == null) app.openBotChat(bot, storedSessionId, readUpTo)
+                    if (!bot.hasBotIdentity) app.reopenProfile(chatsProfileOf(bot.name))
+                    else if (storedSessionId != openSessionId || route.target.bot == null) app.openBotChat(bot, storedSessionId, readUpTo)
                     closeDrawerToChat()
                 },
                 onOpenBotSession = { bot, id, title ->
@@ -541,7 +561,7 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
         onCheckpoints = chat::openCheckpoints,
         // Only a chat carrying a goal, loop or heartbeat gets the row.
         onControl = chat::openControl.takeIf { chatState.control != null },
-        botChat = route.target.bot != null,
+        botChat = route.target.keepsBotChatRules,
         onStartFresh = openBot?.let { bot -> { startOver = bot } },
         onOpenChat = app::openSession,
     )

@@ -10,12 +10,13 @@ import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 enum class ThemeMode { System, Light, Dark }
 
-/** The accent [AppSettings.accent] starts with: Desktop's blue. */
-const val DEFAULT_ACCENT = "Blue"
+/** The theme [AppSettings.theme] starts with: Ukiyo-e. */
+const val DEFAULT_THEME = "Ukiyo-e"
 
 /** How much bigger or smaller than the system font size the app draws text. */
 enum class TextSize(val scale: Float) {
@@ -60,14 +61,15 @@ enum class RunningSend { Steer, Queue, StopAndSend }
 /** App-side preferences, kept on the device (not on the gateway). New fields need defaults. */
 @Serializable
 data class AppSettings(
-    val theme: ThemeMode = ThemeMode.System,
+    /** Light, dark or follow the system (stored under the key "theme", which it had before themes). */
+    @SerialName("theme") val colorMode: ThemeMode = ThemeMode.System,
     /** Dark mode uses true black backgrounds (OLED). */
     val pureBlack: Boolean = false,
     /**
-     * The accent preset's name (the design system's `AccentPalette`). A string, not an enum, so a preset that a
-     * newer version added reads as the default here instead of making the whole stored settings unreadable.
+     * The theme's name (the design system's `AppTheme`; stored under the key "accent"). A string, not an enum, so a theme that a
+     * newer version added (or an accent from before themes) reads as the default here instead of making the whole stored settings unreadable.
      */
-    val accent: String = DEFAULT_ACCENT,
+    @SerialName("accent") val theme: String = DEFAULT_THEME,
     /**
      * The colored glows: behind the top of each screen; under prompts, the app mark, Send, New chat, the main
      * buttons and live subagent cards; on the voice screen; and the assistant edge's halo. Off, all flat.

@@ -20,6 +20,8 @@ import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.push.PushCrypto
 import dev.hermeskotlin.core.push.PushDirection
 import dev.hermeskotlin.core.push.PushGuard
+import dev.hermeskotlin.core.push.PushLogEntry
+import dev.hermeskotlin.core.push.PushLogStore
 import dev.hermeskotlin.core.push.PushMessage
 import dev.hermeskotlin.core.push.PushRules
 import dev.hermeskotlin.core.settings.SettingsStore
@@ -54,6 +56,7 @@ class PushListener(
     private val gateways: GatewayRepository,
     private val phoneTools: PhoneToolsBridge,
     private val inbox: InboxStore,
+    private val pushLog: PushLogStore,
     private val profiles: ProfileGate,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -106,6 +109,19 @@ class PushListener(
             // backlog read after a restart) is past its time and doesn't ring.
             PushMessage.PHONE_CALL -> phoneTools.ring(message)
             PushMessage.CRON_RUN -> showCronRun(message, gatewayUrl ?: return)
+            PushMessage.APPROVAL -> showApproval(message, gatewayUrl)
+        }
+        // Last, so a slow or failing write can't hold back or lose the notification or the ring.
+        gatewayUrl?.let { url ->
+            try {
+                PushLogEntry.from(message)
+                    ?.takeIf { entry -> entry.bot.let { name -> name == null || profiles.allows(url, name) } }
+                    ?.let { entry -> pushLog.record(url, entry) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "push log write failed: ${e::class.simpleName}")
+            }
         }
     }
 
@@ -153,6 +169,29 @@ class PushListener(
         notifications.postBotMessage(bot, bots.picture(bot), session, text, viaPush = true)
     }
 
+    /**
+     * A bot waits for approval: told while the app is not connected, so it can't show its own card. It only opens the
+     * chat (the gateway's plugin sends no choices). The text came from the gateway, redacted, and is cleaned again.
+     */
+    private fun showApproval(message: PushMessage, gatewayUrl: String?) {
+        val name = message.bot?.takeIf { BOT_NAME.matches(it) } ?: return
+        if (!profiles.allows(gatewayUrl, name)) return
+        val ageSeconds = System.currentTimeMillis() / 1000 - message.ts
+        if (!PushRules.showsApproval(connection.state.value is ConnectionState.Connected, ageSeconds)) return
+        val session = message.session?.takeIf { SESSION_ID.matches(it) }
+        notifications.postApprovalPush(
+            bot = name,
+            label = clean(message.label, MAX_LABEL) ?: name,
+            storedSessionId = session,
+            description = clean(message.description, MAX_DESCRIPTION).orEmpty(),
+            command = clean(message.command, MAX_COMMAND).orEmpty(),
+            key = message.id,
+        )
+    }
+
+    private fun clean(text: String?, max: Int): String? =
+        text?.filter { !it.isISOControl() || it == '\n' }?.trim()?.take(max)?.takeIf { it.isNotEmpty() }
+
     private fun fallbackBot(name: String, label: String?): Bot {
         val title = label?.filter { !it.isISOControl() }?.trim()?.take(MAX_LABEL)?.takeIf { it.isNotEmpty() }
         return Bot(name = name, uiMeta = title?.let { JsonObject(mapOf(BotMeta.KEY to JsonObject(mapOf("title" to JsonPrimitive(it))))) })
@@ -162,6 +201,8 @@ class PushListener(
         const val TAG = "PushListener"
         const val HEALTHY_MS = 60_000L
         const val MAX_LABEL = 64
+        const val MAX_DESCRIPTION = 240
+        const val MAX_COMMAND = 160
         val BACKOFF_MS = longArrayOf(2_000, 5_000, 10_000, 30_000, 60_000)
         val BOT_NAME = Regex("^[A-Za-z0-9_.-]{1,64}$")
         val SESSION_ID = Regex("^[A-Za-z0-9_.:-]{1,128}$")

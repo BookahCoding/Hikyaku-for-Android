@@ -1,5 +1,6 @@
 package dev.hermeskotlin.ui.settings
 
+import dev.hermeskotlin.designsystem.AppTheme
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.test.Test
@@ -31,7 +32,7 @@ class AppIconsManifestTest {
     @Test
     fun onlyTheDefaultStartsEnabled() {
         val enabled = aliases.filterValues { it.getAttributeNS(android, "enabled") != "false" }.keys
-        assertEquals(setOf(AppIcon.Blue.aliasClass), enabled)
+        assertEquals(setOf(AppIcon.Ukiyoe.aliasClass), enabled)
     }
 
     @Test
@@ -40,5 +41,21 @@ class AppIconsManifestTest {
             val meta = alias.getElementsByTagName("meta-data")
             assertTrue((0 until meta.length).any { (meta.item(it) as Element).getAttributeNS(android, "name") == "android.app.shortcuts" }, name)
         }
+    }
+
+    @Test
+    fun everyThemeHasItsOwnIcon() {
+        assertEquals(
+            AppTheme.all.map { it.name }.toSet(),
+            AppIcon.entries.filter { it.group == AppIconGroup.Themes }.map { it.label }.toSet(),
+        )
+        for (p in AppTheme.all) assertEquals(p.name, p.icon().label)
+    }
+
+    @Test
+    fun theRetiredColourIconsAreGone() {
+        val gone = listOf("Violet", "Green", "Orange", "Pink", "Teal", "Blue")
+        assertTrue(AppIcon.entries.none { it.label in gone })
+        assertTrue(aliases.keys.none { k -> gone.any { k.endsWith("AppIcon$it") } })
     }
 }

@@ -487,7 +487,7 @@ class ChatNotifications(
                 .putExtra(NotificationActionReceiver.EXTRA_REQUEST_ID, call.id)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        return context.packageManager.getLaunchIntentForPackage(context.packageName)!!
+        return (context.packageManager.getLaunchIntentForPackage(context.packageName) ?: Intent(context, HeraldActivity::class.java))
             .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
             .putExtra(EXTRA_ANSWERED_CALL, call.id)
             .apply {
@@ -656,6 +656,25 @@ class ChatNotifications(
      * that opens it in the Inbox. One notification per job (a job id is only unique in its profile, [bot]), so a
      * job's next run replaces its last.
      */
+    /**
+     * A bot waits for approval and the app can't show it itself (not connected), told by push. The notification only
+     * says so and opens the chat, where the approval card is; "Always" and every choice stay in the app, because
+     * nothing sent through push can be answered from here.
+     */
+    fun postApprovalPush(bot: String, label: String, storedSessionId: String?, description: String, command: String, key: String) {
+        if (!profiles.allowsHere(bot)) return
+        val what = command.ifBlank { description }.ifBlank { "Open the chat to review it." }
+        val body = listOf(description, command).filter { it.isNotBlank() }.joinToString("\n\n").ifBlank { what }
+        val notification = base(CHANNEL_REQUESTS, storedSessionId, label)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentTitle("$label asks for approval")
+            .setContentText(what)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .build()
+        post("approval:$key", APPROVAL_PUSH_ID, notification)
+    }
+
     fun postCronRun(key: String, bot: String, job: String, title: String, text: String, failed: Boolean) {
         if (!profiles.allowsHere(bot)) return
         val body = text.toPlainText().take(MAX_PREVIEW).ifBlank { if (failed) "The run failed." else "Finished." }
@@ -762,6 +781,7 @@ class ChatNotifications(
         /** On the launch intent of an Inbox notification: the run's key ([dev.hermeskotlin.core.inbox.InboxRun.key]). */
         const val EXTRA_OPEN_INBOX = "open_inbox"
         const val CALL_ID = 9
+        const val APPROVAL_PUSH_ID = 10
 
         /** On an Answer's launch intent: the request whose call was answered. */
         const val EXTRA_ANSWERED_CALL = "answered_call"

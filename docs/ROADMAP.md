@@ -47,10 +47,11 @@ uses. The protocol itself is described in [hermes-protocol-research.md](hermes-p
 - [x] The app mark (`HeraldMark`), also the launcher, themed and notification icons
 - [x] `DropdownMenu`, and `Toast` with an action ("Archived · Undo")
 - [ ] Chat bubble, tool card, approval card as design-system components (they live in `shared/ui` for now)
-- [x] Theme picker (system / light / dark) and pure black
-- [x] Accent color presets (Settings → Appearance → Accent): blue, violet, green, orange, pink and teal, each tuned for light, dark and pure black. The seventh, **Ukiyo-e**, also sets the surfaces: washi paper (#F4EDD9) and sumi ink in light, indigo night in dark and pure black, with the kimono's terracotta vermilion as the accent; its colors are measured from a woodblock print and each text step, signal color and accent is checked for contrast
-- [x] App icon (Settings → Appearance → App icon): the mark on each accent color, or over hearts, marks or chat bubbles
+- [x] Mode (Settings → Appearance → Mode): system, light or dark, and pure black
+- [x] Themes (Settings → Appearance → Theme): Ukiyo-e, Great Wave, Red Fuji and Thirty-six Views (inspired by Hokusai's prints) and Shibuya Night and Akihabara (Tokyo neon), each in light, dark and pure black, picked from cards with a small preview; Thirty-six Views, Shibuya Night and Akihabara also have a second color, used for links, unread markers and the assistant's edge light; a setting saved by an older version with one of the old accent colors reads as Ukiyo-e. Each theme sets its own surfaces; Ukiyo-e's are washi paper (#F4EDD9) and sumi ink in light, indigo night in dark and pure black, with the kimono's terracotta vermilion as the accent; its colors are measured from a woodblock print and each text step, signal color and accent is checked for contrast
+- [x] App icon (Settings → Appearance → App icon): one icon for each theme, or the mark over hearts, marks or chat bubbles; picking a theme queues its icon, which changes when you leave the app
 - [x] Glow switch (Settings → Appearance): off, the colored glows go (the halo behind each screen, and the light under prompts, the app mark, Send, New chat, main buttons, live subagent cards, the voice screen, and the assistant edge's halo, which keeps its crisp line) and everything sits flat
+- [ ] Hikyaku (Windows): the same themes
 
 ---
 
@@ -146,6 +147,7 @@ uses. The protocol itself is described in [hermes-protocol-research.md](hermes-p
 - [x] Star the models you use most (kept on the device): the picker opens on Your models, starred and recently picked, with chips for All and for each provider
 - [x] One row per model: the same model from several providers shows once, with a pill per provider (and its price) to pick which
 - [x] Ranked model search: name starts first, then words, then anywhere; "op55" finds Opus 5.5; the start of a provider's name lists its models after the name matches
+- [x] Categories in All: one section per provider you set up, then Local and custom (keyless endpoints, each row naming its provider) for local models, then Free to use
 - [x] Thinking level and fast mode per chat (`config.set reasoning` / `fast`), offered when the model supports them
 - [x] Profile picker (account sheet → Profile; `GET /api/profiles`, chats and sessions scoped with `profile`)
 - [x] Settings screen, opened from the account sheet
@@ -262,6 +264,11 @@ uses. The protocol itself is described in [hermes-protocol-research.md](hermes-p
 
 ### Notifications & background
 - [x] Inbox: finished runs of the cron jobs you follow, newest first and grouped by day, each read in full as Markdown; per job Off, Inbox (quiet) or Notify, plus a notification for any failed run; an unread count on the sidebar tile. Chips along the top show one job's history (a chip per job, with its unread count) or only the failed runs; or, switched to My groups, the user's own groups of jobs (such as RUBIX and Personal, with Other for the rest), made, renamed and filled on a Chips and groups page and kept on the phone. Runs come from the herald-push plugin (0.4.0, `/herald-push cron`), which reads the gateway's cron output files, so a job keeps its own delivery (Telegram and so on). Pushed runs are kept on the phone and read offline
+- [x] Push log: every accepted bot message and call is kept per gateway (500 / 30 days) and listed under Inbox → Messages
+- [x] Reply on a cron run: opens the bot's chat with the run quoted in the composer
+- [x] Cron output shown as a card in the chat: the job name and first lines, with Show all
+- [x] /heartbeat and /loop say why they can't run (Hermes slash-worker bug, NousResearch/hermes-agent#147596) and point to Scheduled
+- [ ] Hikyaku (Windows): the same push log, Reply on cron runs and cron cards
 - [x] Foreground service that keeps the WS alive during long runs
 - [x] One constant, quiet ongoing notification ("Herald · Connected to Hermes") in place of a Live Update; what a turn does shows in the app
 - [x] Local notifications: approval waiting, run finished; tapping one opens its chat
@@ -269,9 +276,10 @@ uses. The protocol itself is described in [hermes-protocol-research.md](hermes-p
 - [x] Answer from the notification: approve/deny, clarify answers, inline reply to a finished turn (each asks for an unlock first)
 - [x] Notification toggles in Settings; permission asked on the first turn
 - [x] Notifications anywhere is the one background mode: it keeps Herald up (quiet notification) and comes back after a reboot or update. Stay connected was removed
+- [x] Approval notifications: when a bot waits for approval and Hikyaku can't reach the gateway, one notification names the bot and shows what it wants to run (secrets redacted by Hermes, clipped), and opens the chat. Needs plugin 0.8.0; it is only a notice, so the approval itself is still answered in the chat. Replying from a notification is not possible yet: Hermes offers no supported way for a plugin to write into a closed chat (`docs/superpowers/specs/2026-11-03-hikyaku-push-0.8-feasibility-spike.md`)
 - [x] The gateway's notices (`notification.show`, `notification.clear`): credits and "still starting the agent" show as banners above the composer, one per key, by level; timed ones go by themselves
 - [x] Follow all sessions: approvals, questions and finished replies notify for chats other than the open one, turns started on Desktop or the CLI included. Each chat that `session.active_list` shows running is attached with `session.activate` (never `session.close`, which would end it for every client). Approve, answer and reply from the notification. Needs the socket up: in sight, during a turn, or with Notifications anywhere
-- [x] Notifications anywhere: bot messages reach the phone off the gateway's network, end-to-end encrypted and signed through ntfy, without Google services. The herald-push plugin is installed from Settings in one tap ([protocol](push-protocol.md))
+- [x] Notifications anywhere: bot messages reach the phone off the gateway's network, end-to-end encrypted and signed through ntfy, without Google services. The herald-push plugin is installed from Settings in one tap ([protocol](push-protocol.md)); it lives in its own repository, [hikyaku-push](https://github.com/BookahCoding/hikyaku-push), which continues Giton22's original
 - [ ] Reply and approve from a push notification when the gateway is out of reach (the `p2g` direction) ⛔
 - [ ] UnifiedPush distributor support, so the ntfy app holds the one connection instead of Herald's foreground service
 
@@ -317,6 +325,6 @@ Agent tools that run on the phone: a gateway plugin registers them, Herald answe
 - [ ] Desktop (JVM) app
 - [x] Wear OS companion (`wearApp`, `shared/wearlink`): talk to Hermes from the watch through Herald on the phone (Data Layer relay, its own side chat); the watch's speech recognizer, or a recording the gateway transcribes; live progress, the reply and the chat's title; the gateway's voice played on the watch, the watch's own voice when there is none; pick, start or continue a chat; an "Ask Hermes" tile and complication
 - [x] Wear OS live voice: with GPT-Live on the gateway, the watch holds the voice call itself (WebRTC, its microphone and speaker, over Wi-Fi or mobile data when it has them) while Herald on the phone gets the model's answer and runs each request as a Hermes turn in the watch's chat; captions, Hermes at work, mute and hang up on the watch; "Talk live" in the watch's settings
-- [x] watch follows phone accent colors
+- [x] watch follows the phone's theme accent
 - [ ] Wear OS direct mode: the watch talks to the gateway itself, without the phone
 - [ ] Localization (`i18n.catalog`)
