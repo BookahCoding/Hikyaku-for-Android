@@ -2,7 +2,6 @@
 .kotlin/
 build/
 local.properties
-liveproxy.env
 .idea/
 *.iml
 .DS_Store
