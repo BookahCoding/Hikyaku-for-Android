@@ -88,7 +88,7 @@ import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageCircle
 import com.composables.icons.lucide.MessageSquarePlus
-import com.composables.icons.lucide.MessagesSquare
+import com.composables.icons.lucide.Mail
 import com.composables.icons.lucide.Moon
 import com.composables.icons.lucide.RefreshCw
 import com.composables.icons.lucide.Send
@@ -747,10 +747,10 @@ internal fun SettingsView(
                     Divider()
                     val uriHandler = LocalUriHandler.current
                     NavRow(
-                        title = "Join the Discord",
-                        detail = "Get help, report bugs, suggest features and hear about new releases.",
-                        icon = Lucide.MessagesSquare,
-                        onClick = { uriHandler.openUri(DISCORD_INVITE) },
+                        title = "Report bugs or suggestions",
+                        detail = FEEDBACK_EMAIL,
+                        icon = Lucide.Mail,
+                        onClick = { uriHandler.openUri("mailto:$FEEDBACK_EMAIL") },
                     )
                 }
             }
@@ -758,8 +758,8 @@ internal fun SettingsView(
     }
 }
 
-/** The Herald community server; the invite never expires. */
-private const val DISCORD_INVITE = "https://discord.gg/wCtyvQ3KcM"
+/** Where bug reports and suggestions go. */
+private const val FEEDBACK_EMAIL = "bookah@tutamail.com"
 
 /** The Phone tools row's line: off, or how many tools the agent may use. */
 private fun phoneToolsSummary(settings: AppSettings): String {
