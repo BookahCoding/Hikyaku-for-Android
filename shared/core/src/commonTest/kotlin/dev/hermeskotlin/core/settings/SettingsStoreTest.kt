@@ -41,7 +41,7 @@ class SettingsStoreTest {
         val restored = SettingsStore(disk, backgroundScope).settings.filterNotNull().first()
         assertEquals("http://10.0.0.8:8787", restored.qwenProxyUrl)
         assertEquals("phone-token", restored.qwenProxyToken)
-        assertEquals(ThemeMode.Dark, restored.theme)
+        assertEquals(ThemeMode.Dark, restored.colorMode)
     }
 
     @Test
