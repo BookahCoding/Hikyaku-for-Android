@@ -119,9 +119,6 @@ interface ChatActions {
 
     fun stopVoiceChat()
 
-    /** Turns the microphone off or on in a GPT-Live call. */
-    fun toggleVoiceMute() {}
-
     fun dismissVoiceChatError()
 
     fun dismissDictationError()

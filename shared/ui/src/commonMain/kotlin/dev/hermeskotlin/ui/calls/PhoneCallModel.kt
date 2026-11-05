@@ -9,7 +9,6 @@ import dev.hermeskotlin.core.settings.AppSettings
 import dev.hermeskotlin.core.settings.SettingsStore
 import dev.hermeskotlin.core.voice.AudioApi
 import dev.hermeskotlin.core.voice.DeviceLock
-import dev.hermeskotlin.core.voice.LiveCalls
 import dev.hermeskotlin.core.voice.SpeechPlayer
 import dev.hermeskotlin.core.voice.VoiceKeepAlive
 import dev.hermeskotlin.core.voice.VoiceRecorder
@@ -64,10 +63,9 @@ class PhoneCallModel(
     player: SpeechPlayer,
     appScope: CoroutineScope,
     keepAlive: VoiceKeepAlive,
-    liveCalls: LiveCalls,
     deviceLock: DeviceLock,
 ) : ViewModel() {
-    val voice = VoiceController(audio, recorder, player, viewModelScope, appScope, keepAlive, liveCalls = liveCalls, deviceLock = deviceLock)
+    val voice = VoiceController(audio, recorder, player, viewModelScope, appScope, keepAlive, deviceLock = deviceLock)
 
     private val _state = MutableStateFlow<PhoneCallState?>(null)
     val state: StateFlow<PhoneCallState?> = _state.asStateFlow()
@@ -124,7 +122,6 @@ class PhoneCallModel(
         }
     }
 
-    fun toggleMute() = voice.toggleMute()
 
     fun hangUp() {
         voice.stopChat()

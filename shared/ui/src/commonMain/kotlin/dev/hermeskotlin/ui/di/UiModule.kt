@@ -46,7 +46,7 @@ val uiModule = module {
     viewModel {
         ChatViewModel(
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
-            get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
+            get(), get(), get(), get(), get(), get(), get(), get(), get(),
             seen = getOrNull(),
             threads = getOrNull(),
             linkPreviews = get(),

@@ -7,11 +7,7 @@ import com.google.android.gms.wearable.WearableListenerService
 import dev.hermeskotlin.android.notify.ChatNotifier
 import dev.hermeskotlin.core.settings.SettingsStore
 import dev.hermeskotlin.core.wear.WatchRelay
-import dev.hermeskotlin.ui.voice.WatchCalls
 import dev.hermeskotlin.ui.voice.watchAccent
-import dev.hermeskotlin.wearlink.CallEnd
-import dev.hermeskotlin.wearlink.CallEvents
-import dev.hermeskotlin.wearlink.CallStart
 import dev.hermeskotlin.wearlink.PhoneStatusRequest
 import dev.hermeskotlin.wearlink.RecordedAsk
 import dev.hermeskotlin.wearlink.RingEnd
@@ -40,7 +36,6 @@ class WearBridgeService : WearableListenerService() {
 
     private val settings: SettingsStore by inject()
     private val relay: WatchRelay by inject()
-    private val calls: WatchCalls by inject()
     private val scope: CoroutineScope by inject()
     private val notifier: ChatNotifier by inject()
     private val ringer: WatchRinger by inject()
@@ -54,12 +49,6 @@ class WearBridgeService : WearableListenerService() {
                 keepUp()
             }
             WearPaths.STOP -> WearJson.decode<WatchStop>(event.data)?.let { relay.stop(it.askId) }
-            WearPaths.CALL_START -> WearJson.decode<CallStart>(event.data)?.let {
-                calls.start(node, it)
-                keepUp()
-            }
-            WearPaths.CALL_EVENTS -> WearJson.decode<CallEvents>(event.data)?.let { calls.events(node, it) }
-            WearPaths.CALL_END -> WearJson.decode<CallEnd>(event.data)?.let(calls::end)
             WearPaths.RING_END -> WearJson.decode<RingEnd>(event.data)?.let { ringer.endedOnWatch(node, it) }
             WearPaths.RING_ON -> WearJson.decode<RingOn>(event.data)?.let(ringer::ringsOn)
             WearPaths.CHATS -> relay.chats(node)

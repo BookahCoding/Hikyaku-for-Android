@@ -34,7 +34,6 @@ kotlin {
             implementation(libs.markdown.parser)
             implementation(libs.koin.android)
             implementation(libs.androidx.core.ktx)
-            implementation(libs.webrtc.android)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
