@@ -20,8 +20,44 @@ import dev.hermeskotlin.designsystem.text
 import dev.hermeskotlin.designsystem.textSecondary
 import dev.hermeskotlin.designsystem.textTertiary
 import dev.hermeskotlin.designsystem.typography
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.remember
+import dev.hermeskotlin.core.inbox.keepLineBreaks
+import dev.hermeskotlin.designsystem.components.Button
+import dev.hermeskotlin.designsystem.components.ButtonSize
+import dev.hermeskotlin.designsystem.components.ButtonVariant
+import dev.hermeskotlin.designsystem.components.MarkdownText
+import dev.hermeskotlin.ui.components.messageTime
+import dev.hermeskotlin.ui.components.uses24HourClock
+import dev.hermeskotlin.ui.sessions.SubpageHeader
 
-/** The messages the agents pushed to this phone, newest first; one with a chat opens it, and any shows its text. */
+/** One pushed message in full, as Markdown, with a way into the chat it came from when it has one. */
+@Composable
+internal fun MessageView(entry: PushLogEntry, name: String, onBack: () -> Unit, onOpenChat: () -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        SubpageHeader(name, onBack = onBack, subtitle = messageTime(entry.at.toDouble(), uses24HourClock()))
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+        ) {
+            MarkdownText(remember(entry.text) { keepLineBreaks(entry.text) })
+        }
+        if (entry.bot != null) {
+            // Bottom padding leaves room for the sidebar's New chat button, which lies over the page's foot.
+            Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)) {
+                Button("Open chat", onClick = onOpenChat, modifier = Modifier.fillMaxWidth(), variant = ButtonVariant.Secondary, size = ButtonSize.Medium)
+            }
+        }
+    }
+}
+
+/** The messages the agents pushed to this phone, newest first; tapping one reads it in full. */
 @Composable
 internal fun MessageLogView(
     entries: List<PushLogEntry>,
@@ -44,7 +80,7 @@ internal fun MessageLogView(
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .clickable(enabled = entry.bot != null) { onOpen(entry) }
+                    .clickable(onClickLabel = "Read ${nameOf(entry)}") { onOpen(entry) }
                     .padding(horizontal = 16.dp, vertical = 10.dp),
             ) {
                 Text(

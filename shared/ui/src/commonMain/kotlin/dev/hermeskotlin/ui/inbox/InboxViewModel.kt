@@ -188,8 +188,14 @@ interface InboxActions {
     fun renameJob(chip: JobChip, name: String)
     fun setTab(tab: InboxTab)
 
-    /** Opens the chat a pushed message is from, and marks it read. */
+    /** Shows a pushed message in full, and marks it read. */
     fun openMessage(entry: PushLogEntry)
+
+    /** Leaves the message shown in full. */
+    fun closeMessage()
+
+    /** Opens the chat a pushed message is from. */
+    fun openMessageChat(entry: PushLogEntry)
 
     /** Starts a reply to [run] in its bot's chat, quoting how it began. */
     fun reply(run: InboxRun)
@@ -257,6 +263,8 @@ data class InboxUiState(
     /** The pushes this phone accepted from the gateway, newest first. */
     val messages: List<PushLogEntry> = emptyList(),
     val readMessages: Set<String> = emptySet(),
+    /** The pushed message shown in full; null shows the lists. */
+    val openMessage: PushLogEntry? = null,
 ) {
     val unreadMessages: Int get() = messages.count { it.id !in readMessages }
 
@@ -454,9 +462,15 @@ class InboxViewModel(
     override fun setTab(tab: InboxTab) = _state.update { it.copy(tab = tab) }
 
     override fun openMessage(entry: PushLogEntry) {
-        val bot = entry.bot ?: return
         val url = gateway?.gatewayUrl?.value ?: return
+        _state.update { it.copy(openMessage = entry) }
         viewModelScope.launch { pushLog.markRead(url, entry.id) }
+    }
+
+    override fun closeMessage() = _state.update { it.copy(openMessage = null) }
+
+    override fun openMessageChat(entry: PushLogEntry) {
+        val bot = entry.bot ?: return
         // A call's session isn't a chat of that bot's to open.
         chatLinks.openBot(bot, entry.label, entry.session.takeIf { entry.type == PushMessage.BOT_MESSAGE })
     }

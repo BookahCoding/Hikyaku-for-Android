@@ -164,16 +164,26 @@ class InboxViewModelTest {
         assertEquals(InboxTab.Messages, vm.state.value.tab)
         assertEquals(setOf("m1", "m2"), vm.state.value.messages.map { it.id }.toSet())
 
-        vm.openMessage(vm.state.value.messages.first { it.id == "m2" })
+        vm.openMessageChat(vm.state.value.messages.first { it.id == "m2" })
         assertEquals(null, chatLinks.pending.value)
         assertEquals(emptySet(), vm.state.value.readMessages)
 
+        // Reading a message shows it in full and marks it read, bot or not; the chat is a further step.
+        vm.openMessage(vm.state.value.messages.first { it.id == "m2" })
+        runCurrent()
+        assertEquals("m2", vm.state.value.openMessage?.id)
+        assertEquals(null, chatLinks.pending.value)
+        assertEquals(setOf("m2"), vm.state.value.readMessages)
+        vm.closeMessage()
+        assertEquals(null, vm.state.value.openMessage)
+
         vm.openMessage(vm.state.value.messages.first { it.id == "m1" })
+        vm.openMessageChat(vm.state.value.messages.first { it.id == "m1" })
         runCurrent()
         val link = chatLinks.pending.value
         assertEquals("shisha", link?.bot)
         assertEquals("s1", link?.storedSessionId)
-        assertEquals(setOf("m1"), vm.state.value.readMessages)
+        assertEquals(setOf("m1", "m2"), vm.state.value.readMessages)
     }
 
     @Test
@@ -204,7 +214,7 @@ class InboxViewModelTest {
         pushLog.record(one.gatewayUrl.value, PushLogEntry("c1", "phone_call", now, bot = "shisha", session = "s1", text = "ring"), now)
         vm.bind(one)
         runCurrent()
-        vm.openMessage(vm.state.value.messages.first())
+        vm.openMessageChat(vm.state.value.messages.first())
         runCurrent()
         val link = chatLinks.pending.value
         assertEquals("shisha", link?.bot)

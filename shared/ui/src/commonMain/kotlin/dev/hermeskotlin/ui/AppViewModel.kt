@@ -296,6 +296,10 @@ class AppViewModel(
                     null
                 }
                 _route.value = when {
+                    // A message pushed from this profile names its session: open it, rather than leave for the list.
+                    draft == null && storedSessionId != null -> Route.Chat(
+                        ChatTarget(gateway, storedSessionId, label?.takeIf { it.isNotBlank() } ?: "Chat", profile = profile, readUpTo = readUpTo),
+                    )
                     draft == null -> home(gateway)
                     existing != null -> Route.Chat(
                         ChatTarget(gateway, existing, label?.takeIf { it.isNotBlank() } ?: BotsApi.BOT_CHAT_TITLE, profile = profile, draft = draft, botChatProfile = bot),
