@@ -185,7 +185,8 @@ internal fun InboxPage(
             viewModel.dismissMessage()
         }
     }
-    PlatformBackHandler(enabled = visible && state.open != null) { viewModel.closeRun() }
+    PlatformBackHandler(enabled = visible && state.openMessage != null) { viewModel.closeMessage() }
+    PlatformBackHandler(enabled = visible && state.openMessage == null && state.open != null) { viewModel.closeRun() }
     PlatformBackHandler(enabled = visible && state.open == null && state.choosing) { viewModel.closeJobs() }
     PlatformBackHandler(enabled = visible && state.open == null && !state.choosing && state.grouping) { viewModel.closeGroups() }
     // In a folder, back goes to the folders before it leaves the Inbox.
@@ -197,6 +198,12 @@ internal fun InboxPage(
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             when {
+                state.openMessage != null -> MessageView(
+                    state.openMessage,
+                    state.nameOf(state.openMessage),
+                    onBack = viewModel::closeMessage,
+                    onOpenChat = { viewModel.openMessageChat(state.openMessage) },
+                )
                 state.open != null -> RunView(state.open, state.nameOf(state.open), state.openLoading, state.openNote, onBack = viewModel::closeRun, onReply = { viewModel.reply(state.open) })
                 state.choosing -> FollowView(state, viewModel)
                 state.grouping -> GroupsView(state, viewModel)

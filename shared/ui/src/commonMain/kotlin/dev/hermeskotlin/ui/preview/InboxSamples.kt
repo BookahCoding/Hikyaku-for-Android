@@ -154,5 +154,7 @@ internal object PreviewInboxActions : InboxActions {
     override fun renameJob(chip: JobChip, name: String) {}
     override fun setTab(tab: InboxTab) {}
     override fun openMessage(entry: PushLogEntry) {}
+    override fun closeMessage() {}
+    override fun openMessageChat(entry: PushLogEntry) {}
     override fun loadMore() {}
 }
