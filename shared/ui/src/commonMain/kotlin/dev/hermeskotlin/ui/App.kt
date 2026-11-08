@@ -392,6 +392,7 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
     }
     val sessionsBadge by others.badge.collectAsStateWithLifecycle()
     val banner by others.banner.collectAsStateWithLifecycle()
+    val waitingLine by others.waitingLine.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     val vibrate = alerts && settings.otherChatsVibrate
     LaunchedEffect(others, vibrate) {
@@ -523,6 +524,12 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
                             openOther(event.chatId, event.title, event.bot)
                         },
                         onDismissOtherChat = others::dismissBanner,
+                        waitingLine = waitingLine.takeIf { alerts && !drawerOver },
+                        onOpenWaiting = { line ->
+                            banner?.let(others::dismissBanner)
+                            openOther(line.chatId, line.title, line.bot)
+                        },
+                        onDismissWaiting = others::dismissWaiting,
                         onNextChat = if (!alerts) null else fun(): Boolean {
                             val next = others.nextChat()
                             if (next != null) {

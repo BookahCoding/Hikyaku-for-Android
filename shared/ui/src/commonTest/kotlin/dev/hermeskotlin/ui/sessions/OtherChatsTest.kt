@@ -70,6 +70,45 @@ class OtherChatsTest {
     }
 
     @Test
+    fun aChatAlreadyWaitingShowsALineOnTheFirstLook() {
+        val watch = OtherChatsWatch()
+        val asked = chats(waiting("ops").copy(title = "Ops"))
+        // The first look is not news, so no banner; the line still says it is waiting.
+        assertNull(watch.update(asked, 1))
+        assertEquals("Ops · needs approval", watch.waitingLine(asked)?.label)
+    }
+
+    @Test
+    fun theWaitingLineStaysUntilDismissedAndANewRequestBringsItBack() {
+        val watch = OtherChatsWatch()
+        watch.update(chats(idle("ops"), idle("b")), 1)
+        val asked = chats(
+            waiting("ops").copy(title = "Ops", requestId = "r1", activityAt = 1.0),
+            waiting("b").copy(title = "Beta", activityAt = 5.0),
+        )
+        watch.update(asked, 2)
+        val line = assertNotNull(watch.waitingLine(asked))
+        assertEquals("ops", line.chatId)
+        assertEquals("Ops · needs approval, and 1 more", line.label)
+        val hidden = watch.waitingLine(asked, mapOf("ops" to "r1"))
+        assertEquals("b", hidden?.chatId)
+        assertEquals("Beta · needs approval", hidden?.label)
+        val again = chats(waiting("ops").copy(title = "Ops", requestId = "r2"))
+        watch.update(again, 3)
+        assertEquals("ops", watch.waitingLine(again, mapOf("ops" to "r1"))?.chatId)
+    }
+
+    @Test
+    fun aQuestionAndAReplyAreToldApartOnTheWaitingLine() {
+        val watch = OtherChatsWatch()
+        watch.update(chats(idle("q")), 1)
+        val asked = chats(waiting("q", Waiting.Question).copy(title = "Quiz"))
+        watch.update(asked, 2)
+        assertEquals("Quiz · needs an answer", watch.waitingLine(asked)?.label)
+        assertNull(watch.waitingLine(chats(reply("q"))))
+    }
+
+    @Test
     fun aBannerGoesOnceWhatItSaysIsNoLongerTrue() {
         val asked = OtherChatEvent("b", "B", OtherChatCall.Approval)
         val replied = OtherChatEvent("b", "B", OtherChatCall.Reply)

@@ -80,6 +80,7 @@ import dev.hermeskotlin.designsystem.warning
 import dev.hermeskotlin.designsystem.warningSoft
 import dev.hermeskotlin.ui.sessions.OtherChatEvent
 import dev.hermeskotlin.ui.sessions.SessionsBadge
+import dev.hermeskotlin.ui.sessions.WaitingLine
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.time.Clock
@@ -127,6 +128,47 @@ internal fun SessionsButton(badge: SessionsBadge, onClick: () -> Unit, onNext: (
                     .background(dot, CircleShape),
             )
         }
+    }
+}
+
+/**
+ * A chat waiting on the user, kept under the title. A tap opens it; × hides it until that request changes.
+ * A reply stays a toast ([OtherChatBanner]) and leaves on its own.
+ */
+@Composable
+internal fun WaitingLineBar(
+    line: WaitingLine,
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val shape = RoundedCornerShape(Theme[radii][radiusLarge])
+    Row(
+        Modifier
+            .padding(start = 10.dp, end = 6.dp, bottom = 4.dp)
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Theme[colors][warningSoft], shape)
+            .clickable(onClickLabel = "Open ${line.title}", role = Role.Button, onClick = onOpen)
+            .semantics { liveRegion = LiveRegionMode.Polite }
+            .padding(start = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        UnstyledIcon(Lucide.ShieldAlert, contentDescription = null, tint = Theme[colors][warning], modifier = Modifier.size(16.dp))
+        Text(
+            line.label,
+            style = Theme[typography][label].copy(fontWeight = FontWeight.Medium),
+            color = Theme[colors][warning],
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(vertical = 10.dp),
+        )
+        Text(
+            "Open",
+            style = Theme[typography][label].copy(fontWeight = FontWeight.SemiBold),
+            color = Theme[colors][warning],
+        )
+        IconButton(Lucide.X, contentDescription = "Dismiss", onClick = onDismiss, tint = Theme[colors][warning])
     }
 }
 

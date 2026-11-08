@@ -93,6 +93,17 @@ class OtherChatsViewModel(
     /** What newly happened in another chat, for the banner over the chat; null when there's nothing to say. */
     val banner: StateFlow<OtherChatEvent?> = _banner.asStateFlow()
 
+    /** Chats whose waiting line the user dismissed, by id and the request it was hiding. */
+    private val dismissedWaiting = mutableMapOf<String, String?>()
+
+    private val _waitingLine = MutableStateFlow<WaitingLine?>(null)
+
+    /**
+     * Another chat waiting on the user, kept until it is opened, answered or dismissed.
+     * A reply does not stay here; that is the banner's job.
+     */
+    val waitingLine: StateFlow<WaitingLine?> = _waitingLine.asStateFlow()
+
     private val _otherChatEvents = MutableSharedFlow<OtherChatEvent>(extraBufferCapacity = 4)
 
     /** Each thing that newly happens in another chat, once, e.g. to buzz when one starts waiting. */
@@ -135,6 +146,8 @@ class OtherChatsViewModel(
             _others.value = OtherChats()
             _badge.value = SessionsBadge()
             _banner.value = null
+            dismissedWaiting.clear()
+            _waitingLine.value = null
             previewJob?.cancel()
             recentJob?.cancel()
         }
@@ -179,6 +192,7 @@ class OtherChatsViewModel(
         val others = OtherChats(_others.value.chats.filterKeys { it !in ids })
         _others.value = others
         _badge.value = watch.badge(others)
+        publishWaitingLine(others)
     }
 
     /** The bots' chats, from the roster, for the badge and the banner. */
@@ -192,6 +206,21 @@ class OtherChatsViewModel(
      */
     fun dismissBanner(event: OtherChatEvent) {
         _banner.update { if (it != null && it.chatId == event.chatId && it.atMillis == event.atMillis) null else it }
+    }
+
+    /** Hides the waiting line for [line]'s request. A later request in that chat shows the line again. */
+    fun dismissWaiting(line: WaitingLine) {
+        dismissedWaiting[line.chatId] = line.requestId
+        _waitingLine.value = watch.waitingLine(_others.value, dismissedWaiting)
+    }
+
+    /** Drops dismissals that no longer match, then publishes the oldest chat still waiting. */
+    private fun publishWaitingLine(others: OtherChats) {
+        dismissedWaiting.keys.toList().forEach { id ->
+            val chat = others.chats[id]
+            if (chat == null || chat.waiting == null || !dismissedHolds(chat, dismissedWaiting)) dismissedWaiting.remove(id)
+        }
+        _waitingLine.value = watch.waitingLine(others, dismissedWaiting)
     }
 
     /** The next other chat needing the user: requests oldest first, then replies oldest first; null when none does. */
@@ -228,6 +257,8 @@ class OtherChatsViewModel(
                 _others.value = OtherChats()
                 _badge.value = SessionsBadge()
                 _banner.value = null
+                dismissedWaiting.clear()
+                _waitingLine.value = null
                 previewJob?.cancel()
                 recentJob?.cancel()
                 recentRows.value = emptyList()
@@ -348,6 +379,7 @@ class OtherChatsViewModel(
                 _others.value = others
                 val event = watch.update(others, clock.now().toEpochMilliseconds(), settled)
                 _badge.value = watch.badge(others)
+                publishWaitingLine(others)
                 // A banner for something since dealt with (answered, read, archived) goes.
                 _banner.update { shown -> shown?.takeIf { others.stillTrue(it) } }
                 if (event != null) {
