@@ -7,9 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -46,6 +44,7 @@ import dev.hermeskotlin.designsystem.warningSoft
 import dev.hermeskotlin.ui.chat.AppMark
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import dev.hermeskotlin.designsystem.components.Chip
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -186,6 +185,7 @@ import dev.hermeskotlin.designsystem.components.ButtonVariant
 import dev.hermeskotlin.designsystem.components.Dialog
 import dev.hermeskotlin.designsystem.components.IconButton
 import dev.hermeskotlin.designsystem.components.MinTouchTarget
+import dev.hermeskotlin.designsystem.components.SectionLabel
 import dev.hermeskotlin.designsystem.components.SheetAction
 import dev.hermeskotlin.designsystem.components.SheetHeader
 import dev.hermeskotlin.designsystem.components.Spinner
@@ -366,8 +366,20 @@ fun SessionsSidebar(
         viewModel.query.clearText()
     }
 
+    fun openSidebarPage(page: SidebarPage) {
+        when (page) {
+            SidebarPage.Inbox -> inboxOpen = true
+            SidebarPage.Scheduled -> scheduledOpen = true
+            SidebarPage.Insights -> insightsOpen = true
+            SidebarPage.Capabilities -> capabilitiesOpen = true
+            SidebarPage.Plugins -> pluginsOpen = true
+            SidebarPage.Config -> configOpen = true
+            SidebarPage.Archived -> viewModel.setFilter(SessionListFilter.Archived)
+        }
+    }
+
     // Back steps out of search or the Scheduled / Archived pages before it closes the drawer.
-    PlatformBackHandler(enabled = visible && (searchOpen || scheduledOpen || inboxOpen || routinesOf != null || capabilitiesOpen || configOpen || insightsOpen || state.filter != SessionListFilter.Recent)) {
+    PlatformBackHandler(enabled = visible && (searchOpen || scheduledOpen || inboxOpen || routinesOf != null || capabilitiesOpen || configOpen || pluginsOpen || insightsOpen || state.filter != SessionListFilter.Recent)) {
         when {
             searchOpen -> closeSearch()
             scheduledOpen -> scheduledOpen = false
@@ -378,6 +390,7 @@ fun SessionsSidebar(
             }
             capabilitiesOpen -> capabilitiesOpen = false
             configOpen -> configOpen = false
+            pluginsOpen -> pluginsOpen = false
             insightsOpen -> insightsOpen = false
             else -> viewModel.setFilter(SessionListFilter.Recent)
         }
@@ -683,17 +696,7 @@ fun SessionsSidebar(
                         },
                     ) {
                         item(key = "nav") {
-                            NavGrid(
-                                listOf(
-                                    NavLink(Lucide.Inbox, "Inbox", badge = inboxUnread) { inboxOpen = true },
-                                    NavLink(Lucide.CalendarClock, "Scheduled") { scheduledOpen = true },
-                                    NavLink(Lucide.ChartColumn, "Insights") { insightsOpen = true },
-                                    NavLink(Lucide.Blocks, "Capabilities") { capabilitiesOpen = true },
-                                    NavLink(Lucide.Puzzle, "Plugins") { pluginsOpen = true },
-                                    NavLink(Lucide.SlidersHorizontal, "Config") { configOpen = true },
-                                    NavLink(Lucide.Archive, "Archived") { viewModel.setFilter(SessionListFilter.Archived) },
-                                ),
-                            )
+                            SidebarNav(inboxBadge = inboxUnread, onOpen = ::openSidebarPage)
                         }
                     }
                     state.loading -> ListSkeleton()
@@ -894,16 +897,7 @@ internal fun SessionsSidebarSample(
                     },
                 ) {
                     item(key = "nav") {
-                        NavGrid(
-                            listOf(
-                                NavLink(Lucide.Inbox, "Inbox", badge = 2) {},
-                                NavLink(Lucide.CalendarClock, "Scheduled") {},
-                                NavLink(Lucide.ChartColumn, "Insights") {},
-                                NavLink(Lucide.Blocks, "Capabilities") {},
-                                NavLink(Lucide.Puzzle, "Plugins") {},
-                                NavLink(Lucide.Archive, "Archived") {},
-                            ),
-                        )
+                        SidebarNav(inboxBadge = 2, onOpen = {})
                     }
                 }
             }
@@ -1161,66 +1155,94 @@ private fun SearchHeader(viewModel: SessionsViewModel, onClose: () -> Unit) {
     }
 }
 
-/** One of the sidebar's pages, as a tile in [NavGrid]. */
-internal class NavLink(val icon: ImageVector, val label: String, val badge: Int = 0, val onClick: () -> Unit)
+/** A page reached from the sidebar. [sidebarRow] sits on the chat list; [sidebarMore] opens from More. */
+internal enum class SidebarPage(val label: String, val icon: ImageVector) {
+    Inbox("Inbox", Lucide.Inbox),
+    Scheduled("Scheduled", Lucide.CalendarClock),
+    Insights("Insights", Lucide.ChartColumn),
+    Capabilities("Capabilities", Lucide.Blocks),
+    Plugins("Plugins", Lucide.Puzzle),
+    Config("Config", Lucide.SlidersHorizontal),
+    Archived("Archived", Lucide.Archive),
+}
 
-/** The sidebar's pages as tiles, two to a row. */
+/** Inbox and Scheduled stay one tap away. The rest are occasional, so the chats start on the first screen. */
+internal val sidebarRow = listOf(SidebarPage.Inbox, SidebarPage.Scheduled)
+
+internal val sidebarMore = listOf(
+    SidebarPage.Insights,
+    SidebarPage.Capabilities,
+    SidebarPage.Plugins,
+    SidebarPage.Config,
+    SidebarPage.Archived,
+)
+
+/**
+ * Inbox and Scheduled on one row, and More for the occasional pages. One row, so the chats are on the
+ * first screen of the drawer.
+ */
 @Composable
-private fun NavGrid(links: List<NavLink>) {
-    Column(Modifier.padding(start = 6.dp, end = 6.dp, bottom = 10.dp)) {
-        links.chunked(2).forEach { pair ->
-            // A tile whose label wraps keeps its neighbour the same height.
-            Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                pair.forEach { NavTile(it, Modifier.weight(1f).fillMaxHeight()) }
-                if (pair.size == 1) Box(Modifier.weight(1f))
-            }
+private fun SidebarNav(inboxBadge: Int, onOpen: (SidebarPage) -> Unit) {
+    var moreOpen by remember { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 6.dp, end = 6.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        sidebarRow.forEach { page ->
+            SidebarShortcut(page, badge = if (page == SidebarPage.Inbox) inboxBadge else 0, onClick = { onOpen(page) })
+        }
+        SidebarShortcut(name = "More", icon = Lucide.Ellipsis, onClick = { moreOpen = true })
+    }
+    BottomSheet(visible = moreOpen, onDismiss = { moreOpen = false }) {
+        SheetHeader("More")
+        sidebarMore.forEach { page ->
+            SheetAction(page.label, page.icon, onClick = {
+                moreOpen = false
+                onOpen(page)
+            })
         }
     }
 }
 
-/** A 44dp tile, an accent icon and its label, inside a full-height touch target. */
+/** A compact page on the sidebar's row: icon, name, and an unread count when there is one. */
 @Composable
-private fun NavTile(link: NavLink, modifier: Modifier = Modifier) {
+private fun SidebarShortcut(
+    page: SidebarPage? = null,
+    name: String = page?.label.orEmpty(),
+    icon: ImageVector = page?.icon ?: Lucide.Ellipsis,
+    badge: Int = 0,
+    onClick: () -> Unit,
+) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(Theme[radii][radiusMedium])
-    Box(
-        modifier
+    Row(
+        Modifier
             .heightIn(min = MinTouchTarget)
-            .clickable(interaction, indication = null, role = Role.Button, onClick = link.onClick),
-        contentAlignment = Alignment.Center,
+            .clip(shape)
+            .background(Theme[colors][surface2], shape)
+            .indication(interaction, rememberColoredIndication(Theme[colors][text]))
+            .clickable(interaction, indication = null, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            Modifier
-                .fillMaxSize()
-                .padding(vertical = 2.dp)
-                .clip(shape)
-                .background(Theme[colors][surface2], shape)
-                .indication(interaction, rememberColoredIndication(Theme[colors][text]))
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            UnstyledIcon(link.icon, contentDescription = null, tint = Theme[colors][accentText], modifier = Modifier.size(16.dp))
+        UnstyledIcon(icon, contentDescription = null, tint = Theme[colors][accentText], modifier = Modifier.size(16.dp))
+        Text(
+            name,
+            style = Theme[typography][label].copy(fontSize = 13.5.sp, fontWeight = FontWeight.Medium),
+            color = Theme[colors][text],
+            maxLines = 1,
+        )
+        if (badge > 0) {
             Text(
-                link.label,
-                style = Theme[typography][label].copy(fontSize = 13.5.sp, fontWeight = FontWeight.Medium),
-                color = Theme[colors][text],
-                // Large text wraps rather than cutting the name off; the tile grows.
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
+                if (badge > 99) "99+" else badge.toString(),
+                style = Theme[typography][code].copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
+                color = Theme[colors][onSecondary],
+                modifier = Modifier
+                    .background(Theme[colors][secondary], CircleShape)
+                    .padding(horizontal = 6.dp, vertical = 1.dp)
+                    .semantics { contentDescription = "$badge unread" },
             )
-            if (link.badge > 0) {
-                Text(
-                    if (link.badge > 99) "99+" else link.badge.toString(),
-                    style = Theme[typography][code].copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
-                    color = Theme[colors][onSecondary],
-                    modifier = Modifier
-                        .background(Theme[colors][secondary], CircleShape)
-                        .padding(horizontal = 6.dp, vertical = 1.dp)
-                        .semantics { contentDescription = "${link.badge} unread" },
-                )
-            }
         }
     }
 }
@@ -2163,6 +2185,39 @@ internal fun ListNotice(text: String, action: String? = null, onAction: () -> Un
     }
 }
 
+/** One action in [SessionActionsSheet], so the open chat's menu can group the task apart from the chat. */
+internal enum class SessionMenuKind {
+    Usage, Processes, Checkpoints, Goal,
+    StartFresh, Rename, MakeThread, Pin, Export, CopyId, Archive, Delete,
+}
+
+/** A run of [items] under [title]. The title is set only when the sheet has both a task group and a chat group. */
+internal data class SessionMenuGroup(val title: String?, val items: List<SessionMenuKind>)
+
+private val taskMenu = listOf(SessionMenuKind.Usage, SessionMenuKind.Processes, SessionMenuKind.Checkpoints, SessionMenuKind.Goal)
+
+private val chatMenu = listOf(
+    SessionMenuKind.StartFresh,
+    SessionMenuKind.Rename,
+    SessionMenuKind.MakeThread,
+    SessionMenuKind.Pin,
+    SessionMenuKind.Export,
+    SessionMenuKind.CopyId,
+    SessionMenuKind.Archive,
+    SessionMenuKind.Delete,
+)
+
+/** [present] in menu order. Headings appear only when both groups have something to show. */
+internal fun sessionMenuGroups(present: Set<SessionMenuKind>): List<SessionMenuGroup> {
+    val task = taskMenu.filter { it in present }
+    val chat = chatMenu.filter { it in present }
+    val both = task.isNotEmpty() && chat.isNotEmpty()
+    return listOfNotNull(
+        task.takeIf { it.isNotEmpty() }?.let { SessionMenuGroup(if (both) "This task" else null, it) },
+        chat.takeIf { it.isNotEmpty() }?.let { SessionMenuGroup(if (both) "This chat" else null, it) },
+    )
+}
+
 /** A session's verbs, from a sidebar row or the open chat's menu; the chat adds export and copy id. */
 @Composable
 internal fun SessionActionsSheet(
@@ -2197,20 +2252,49 @@ internal fun SessionActionsSheet(
         }
         SheetHeader(s.displayTitle, age)
         fun act(block: (SessionSummary) -> Unit) = { onDismiss(); block(s) }
-        onStartFresh?.let { SheetAction("Start fresh", Lucide.RotateCcw, act(it)) }
-        onRename?.let { SheetAction("Rename", Lucide.Pencil, act(it)) }
-        onMakeThread?.let { SheetAction("Make thread", Lucide.Hash, act(it)) }
-        onTogglePinned?.let { SheetAction(if (s.pinned) "Unpin" else "Pin", if (s.pinned) Lucide.PinOff else Lucide.Pin, act(it)) }
-        onUsage?.let { SheetAction("Usage and cost", Lucide.Gauge, act(it)) }
-        onProcesses?.let { SheetAction("Background processes", Lucide.SquareTerminal, act(it)) }
-        onCheckpoints?.let { SheetAction("Checkpoints", Lucide.History, act(it)) }
-        onControl?.let { SheetAction("Goal and loops", Lucide.Target, act(it)) }
-        onExport?.let { SheetAction("Export as Markdown", Lucide.Download, act(it)) }
-        onCopyId?.let { SheetAction("Copy session ID", Lucide.Copy, act(it)) }
-        onToggleArchived?.let {
-            SheetAction(if (s.archived) "Unarchive" else "Archive", if (s.archived) Lucide.ArchiveRestore else Lucide.Archive, act(it))
+        val present = buildSet {
+            if (onUsage != null) add(SessionMenuKind.Usage)
+            if (onProcesses != null) add(SessionMenuKind.Processes)
+            if (onCheckpoints != null) add(SessionMenuKind.Checkpoints)
+            if (onControl != null) add(SessionMenuKind.Goal)
+            if (onStartFresh != null) add(SessionMenuKind.StartFresh)
+            if (onRename != null) add(SessionMenuKind.Rename)
+            if (onMakeThread != null) add(SessionMenuKind.MakeThread)
+            if (onTogglePinned != null) add(SessionMenuKind.Pin)
+            if (onExport != null) add(SessionMenuKind.Export)
+            if (onCopyId != null) add(SessionMenuKind.CopyId)
+            if (onToggleArchived != null) add(SessionMenuKind.Archive)
+            if (onDelete != null) add(SessionMenuKind.Delete)
         }
-        onDelete?.let { SheetAction("Delete", Lucide.Trash2, act(it), destructive = true) }
+        Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState())) {
+            sessionMenuGroups(present).forEach { group ->
+                group.title?.let { SectionLabel(it, Modifier.padding(start = 18.dp, top = 8.dp, end = 18.dp, bottom = 2.dp)) }
+                group.items.forEach { kind ->
+                    when (kind) {
+                        SessionMenuKind.Usage -> SheetAction("Usage and cost", Lucide.Gauge, act(onUsage!!))
+                        SessionMenuKind.Processes -> SheetAction("Background processes", Lucide.SquareTerminal, act(onProcesses!!))
+                        SessionMenuKind.Checkpoints -> SheetAction("Checkpoints", Lucide.History, act(onCheckpoints!!))
+                        SessionMenuKind.Goal -> SheetAction("Goal and loops", Lucide.Target, act(onControl!!))
+                        SessionMenuKind.StartFresh -> SheetAction("Start fresh", Lucide.RotateCcw, act(onStartFresh!!))
+                        SessionMenuKind.Rename -> SheetAction("Rename", Lucide.Pencil, act(onRename!!))
+                        SessionMenuKind.MakeThread -> SheetAction("Make thread", Lucide.Hash, act(onMakeThread!!))
+                        SessionMenuKind.Pin -> SheetAction(
+                            if (s.pinned) "Unpin" else "Pin",
+                            if (s.pinned) Lucide.PinOff else Lucide.Pin,
+                            act(onTogglePinned!!),
+                        )
+                        SessionMenuKind.Export -> SheetAction("Export as Markdown", Lucide.Download, act(onExport!!))
+                        SessionMenuKind.CopyId -> SheetAction("Copy session ID", Lucide.Copy, act(onCopyId!!))
+                        SessionMenuKind.Archive -> SheetAction(
+                            if (s.archived) "Unarchive" else "Archive",
+                            if (s.archived) Lucide.ArchiveRestore else Lucide.Archive,
+                            act(onToggleArchived!!),
+                        )
+                        SessionMenuKind.Delete -> SheetAction("Delete", Lucide.Trash2, act(onDelete!!), destructive = true)
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -71,6 +71,46 @@ data class OtherChatEvent(
     val waiting: Boolean get() = call != OtherChatCall.Reply
 }
 
+/**
+ * Another chat waiting on the user, kept under the open chat's title until it is opened or dismissed.
+ * A reply is not one of these: that still flashes and leaves. [more] is how many other chats are also waiting.
+ */
+data class WaitingLine(
+    val chatId: String,
+    val title: String,
+    val call: OtherChatCall,
+    val bot: String? = null,
+    val requestId: String? = null,
+    val more: Int = 0,
+) {
+    /** "Ops · needs approval", and how many more when several are waiting. */
+    val label: String
+        get() {
+            val what = when (call) {
+                OtherChatCall.Approval -> "needs approval"
+                OtherChatCall.Question -> "needs an answer"
+                OtherChatCall.Input -> "needs your input"
+                OtherChatCall.Reply -> "needs you"
+            }
+            val said = "$title · $what"
+            return if (more > 0) "$said, and $more more" else said
+        }
+}
+
+/**
+ * Whether a dismissal of [chat] still holds. [dismissed] maps a chat id to the request it was hiding
+ * (null when that request had no id yet). A later request, one whose id this phone has since heard, shows again.
+ */
+internal fun dismissedHolds(chat: OtherChat, dismissed: Map<String, String?>): Boolean {
+    if (chat.id !in dismissed) return false
+    val hidden = dismissed[chat.id]
+    val now = chat.requestId
+    if (hidden != null && now != null) return hidden == now
+    // The id arrived after a dismissal that had none: treat it as a request worth showing.
+    if (hidden == null && now != null) return false
+    return true
+}
+
 /** The other chats at one moment, keyed by id; the open chat is never in it. */
 data class OtherChats(val chats: Map<String, OtherChat> = emptyMap()) {
 
@@ -222,6 +262,16 @@ class OtherChatsWatch {
             ?: replies.maxByOrNull { it.activityAt ?: 0.0 }?.let { OtherChatEvent(it.id, it.title, OtherChatCall.Reply, it.bot, atMillis = nowMillis) }
             ?: return null
         return lead.copy(more = count - 1)
+    }
+
+    /**
+     * The waiting line for [current]: the oldest chat still waiting, skipping any [dismissed] request.
+     * Null when nothing is waiting. A reply never makes a line.
+     */
+    fun waitingLine(current: OtherChats, dismissed: Map<String, String?> = emptyMap()): WaitingLine? {
+        val waiting = queue(current).filter { it.waiting != null && !dismissedHolds(it, dismissed) }
+        val lead = waiting.firstOrNull() ?: return null
+        return WaitingLine(lead.id, lead.title, lead.waiting!!.call(), lead.bot, lead.requestId, more = waiting.size - 1)
     }
 
     /** The other chats needing the user, in the order Next visits them: requests oldest first, then replies oldest first. */

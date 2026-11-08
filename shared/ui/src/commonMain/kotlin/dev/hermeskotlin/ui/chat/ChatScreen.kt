@@ -318,6 +318,7 @@ import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 import dev.hermeskotlin.ui.sessions.OtherChatEvent
 import dev.hermeskotlin.ui.sessions.SessionsBadge
+import dev.hermeskotlin.ui.sessions.WaitingLine
 
 @Composable
 fun ChatScreen(
@@ -337,6 +338,10 @@ fun ChatScreen(
     otherChatBanner: OtherChatEvent? = null,
     onOpenOtherChat: (OtherChatEvent) -> Unit = {},
     onDismissOtherChat: (OtherChatEvent) -> Unit = {},
+    /** Another chat waiting on the user, kept under the title; null shows none. */
+    waitingLine: WaitingLine? = null,
+    onOpenWaiting: (WaitingLine) -> Unit = {},
+    onDismissWaiting: (WaitingLine) -> Unit = {},
     /** Goes to the next chat needing the user; false when none does. Null offers no Next. */
     onNextChat: (() -> Boolean)? = null,
 ) {
@@ -481,6 +486,9 @@ fun ChatScreen(
         otherChatBanner = otherChatBanner,
         onOpenOtherChat = onOpenOtherChat,
         onDismissOtherChat = onDismissOtherChat,
+        waitingLine = waitingLine,
+        onOpenWaiting = onOpenWaiting,
+        onDismissWaiting = onDismissWaiting,
         onNextChat = onNextChat?.let { next -> { if (!next()) notice = "Nothing waiting" } },
     )
 
@@ -625,6 +633,9 @@ internal fun ChatView(
     otherChatBanner: OtherChatEvent? = null,
     onOpenOtherChat: (OtherChatEvent) -> Unit = {},
     onDismissOtherChat: (OtherChatEvent) -> Unit = {},
+    waitingLine: WaitingLine? = null,
+    onOpenWaiting: (WaitingLine) -> Unit = {},
+    onDismissWaiting: (WaitingLine) -> Unit = {},
     onNextChat: (() -> Unit)? = null,
 ) {
     Box(
@@ -669,6 +680,9 @@ internal fun ChatView(
                 sessionsBadge = sessionsBadge,
                 onNextChat = onNextChat,
             )
+            waitingLine?.let { line ->
+                WaitingLineBar(line, onOpen = { onOpenWaiting(line) }, onDismiss = { onDismissWaiting(line) })
+            }
             // The composer floats over the conversation, which scrolls on beneath it; its height pads the list.
             var dockHeight by remember { mutableIntStateOf(0) }
             val dockInset = with(LocalDensity.current) { dockHeight.toDp() }
