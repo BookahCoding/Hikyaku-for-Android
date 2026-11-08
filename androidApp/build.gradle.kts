@@ -5,9 +5,9 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
-// A release sets these from its tag (-PappVersion=1.4.2) and repo (-PreleasesRepo=owner/name); see
-// .github/workflows/release.yml. A local build is 1.4.2 and never looks for updates.
-val appVersion = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "1.4.2"
+// A release sets these from its tag (-PappVersion=1.4.3) and repo (-PreleasesRepo=owner/name); see
+// .github/workflows/release.yml. A local build is 1.4.3 and never looks for updates.
+val appVersion = (findProperty("appVersion") as String?)?.removePrefix("v") ?: "1.4.3"
 val releasesRepo = (findProperty("releasesRepo") as String?).orEmpty()
 
 android {
