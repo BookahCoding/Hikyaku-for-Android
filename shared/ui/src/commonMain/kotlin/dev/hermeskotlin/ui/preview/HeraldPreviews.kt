@@ -699,7 +699,7 @@ private class PreviewRoomActions : RoomActions {
 }
 
 @Composable
-private fun SampleChat(
+internal fun SampleChat(
     state: ChatState,
     voiceChat: VoiceChatState = VoiceChatState(),
     readAloud: ReadAloudState = ReadAloudState(),
