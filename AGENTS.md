@@ -17,6 +17,7 @@ Native Android client for Hermes Agent, built with Kotlin Multiplatform and Comp
 - Behaviour changes need relevant tests under `shared/core/src/commonTest` or `shared/ui/src/commonTest`.
 - Validate visible changes on a device, including 360 dp widths and both themes. Do not add new lint issues to the baseline.
 - Windows host-test classpath failures mentioning `Files` can result from stray quote characters in PATH.
+- Performance/profile commands and fixture boundaries: `docs/PERFORMANCE.md`; generation is explicit and ordinary builds need no device.
 
 ## Conventions
 - Follow nearby Kotlin conventions; keep changes focused. Commit subjects use `Area: what changed`.
