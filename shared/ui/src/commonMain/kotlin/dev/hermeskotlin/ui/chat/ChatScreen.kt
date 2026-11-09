@@ -1332,10 +1332,11 @@ private fun Messages(
     canReadAloud: Boolean = true,
 ) {
     var confirm by remember { mutableStateOf<Pair<MessageChange, String>?>(null) }
-    val lastPrompt = messages.lastOrNull { it is ChatMessage.User }?.key
+    val structure = remember { TranscriptStructureCache() }.update(messages)
+    val lastPrompt = remember(structure) { structure.lastOrNull { it is ChatMessage.User }?.key }
     val lastReply = messages.lastOrNull { it is ChatMessage.Assistant && it.text.isNotBlank() }?.key
     val faces = LocalBotFaces.current
-    val partners = remember(messages, faces) { messages.map { exchangePartner(it, faces) } }
+    val partners = remember(structure, faces) { structure.map { exchangePartner(it, faces) } }
     // The rewind rules read only the messages.
     val chat = remember(messages) { ChatState(messages = messages) }
     ConfirmChange(confirm, canChange, lastPrompt, chat, actions, onDismiss = { confirm = null })
@@ -1402,14 +1403,14 @@ private fun Messages(
     var unreadPageAskedAt by remember(readUpTo) { mutableStateOf<String?>(null) }
     // Once the user sends from here, what follows is their own conversation, not news to mark or jump to.
     var unreadSettled by remember(readUpTo) { mutableStateOf(false) }
-    LaunchedEffect(readUpTo, messages, olderMessages, loadingOlder) {
+    LaunchedEffect(readUpTo, structure, olderMessages, loadingOlder) {
         if (readUpTo == null || unreadFrom != null || unreadSettled) return@LaunchedEffect
-        if (messages.any { it is ChatMessage.User && it.pending }) {
+        if (structure.any { it is ChatMessage.User && it.pending }) {
             unreadSettled = true
             return@LaunchedEffect
         }
         if (loadingOlder) return@LaunchedEffect
-        val key = when (val step = unreadLineStep(messages, readUpTo, olderMessages, unreadPagesLoaded)) {
+        val key = when (val step = unreadLineStep(structure, readUpTo, olderMessages, unreadPagesLoaded)) {
             UnreadLineStep.LoadOlder -> {
                 val oldest = messages.firstOrNull()?.key
                 if (oldest != unreadPageAskedAt) {
@@ -1430,8 +1431,8 @@ private fun Messages(
             listState.scrollToItem(index)
         }
     }
-    val unservable = remember(messages) { unservableEchoes(messages) }
-    val unreadLine = remember(messages, unreadFrom, readUpTo) { unreadLineKey(messages, unreadFrom, readUpTo) }
+    val unservable = remember(structure) { unservableEchoes(structure) }
+    val unreadLine = remember(structure, unreadFrom, readUpTo) { unreadLineKey(structure, unreadFrom, readUpTo) }
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
@@ -1439,7 +1440,7 @@ private fun Messages(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp + bottomInset),
             verticalArrangement = Arrangement.spacedBy(20.dp, if (LocalAppSettings.current.readingMode) Alignment.Top else Alignment.Bottom),
         ) {
-            itemsIndexed(messages, key = { _, it -> it.key }) { index, message ->
+            itemsIndexed(messages, key = { _, it -> it.key }, contentType = { _, it -> it.transcriptContentType }) { index, message ->
                 // Rows of one exchange with another bot are tied together by a line in that bot's colour.
                 val partner = partners.getOrNull(index)
                 // The "New messages" line breaks the tie: it never runs through it.
