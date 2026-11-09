@@ -12,6 +12,22 @@ import kotlin.test.assertTrue
 class SettingsStoreTest {
 
     @Test
+    fun readingModeIsOptInAndSurvivesReopeningWithoutChangingDetailPreferences() = runTest {
+        val disk = InMemoryKeyValueStore().apply { put("settings.v1", """{"showReasoning":true,"showUsage":true}""") }
+        val first = SettingsStore(disk, backgroundScope)
+        assertEquals(false, first.settings.filterNotNull().first().readingMode)
+        first.update { it.copy(readingMode = true) }
+        advanceUntilIdle()
+        val restored = SettingsStore(disk, backgroundScope).settings.filterNotNull().first()
+        assertEquals(true, restored.readingMode)
+        assertEquals(true, restored.showReasoning)
+        assertEquals(true, restored.showUsage)
+        first.update { it.copy(readingMode = false) }
+        advanceUntilIdle()
+        assertEquals(false, SettingsStore(disk, backgroundScope).settings.filterNotNull().first().readingMode)
+    }
+
+    @Test
     fun startsWithDefaultsAndRemembersChanges() = runTest {
         val disk = InMemoryKeyValueStore()
         val first = SettingsStore(disk, backgroundScope)

@@ -78,6 +78,8 @@ data class AppSettings(
     val textSize: TextSize = TextSize.Default,
     /** How strongly the chat background (kept by [WallpaperStore]) shows, when there is one. */
     val wallpaperStrength: WallpaperStrength = WallpaperStrength.Faint,
+    /** A quieter, top-aligned transcript; the other chat preferences stay intact. */
+    val readingMode: Boolean = false,
     val showReasoning: Boolean = true,
     val showToolActivity: Boolean = true,
     /** Tokens each reply took, under it. */
@@ -96,7 +98,7 @@ data class AppSettings(
     /** The mic for dictation in the composer and on an empty chat. Off, it goes, and the model name gets the room. */
     val dictation: Boolean = true,
     val dictationEngine: DictationEngine = DictationEngine.Device,
-    /** What tapping Send does while a reply is running; a long press on Send picks another for one message. */
+    /** What Send does while a reply is running; the composer mode menu can override it for one message. */
     val runningSend: RunningSend = RunningSend.Steer,
     /**
      * What every new chat started here tells the agent first, out of sight (`putStartInstruction`), such as "I'm on

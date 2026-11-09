@@ -447,9 +447,16 @@ internal fun SettingsView(
                 }
 
                 Section("Chat") {
+                    SwitchRow(
+                        title = "Reading mode",
+                        detail = "Start short conversations at the top, fold live tool steps, and hide wallpaper, pet, timestamps and usage while reading.",
+                        checked = settings.readingMode,
+                        onCheckedChange = { on -> onUpdate { it.copy(readingMode = on) } },
+                    )
+                    Divider()
                     Field(
                         "While a reply is running, Send…",
-                        detail = "${settings.runningSend.summary}. Hold Send to pick another way for one message.",
+                        detail = "${settings.runningSend.summary}. Use Send mode in the composer to choose a different way for one message, then press Send.",
                     ) {
                         SegmentedControl(
                             options = RunningSend.entries,

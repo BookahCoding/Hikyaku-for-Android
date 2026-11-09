@@ -9,6 +9,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -218,6 +219,7 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
     val chat: ChatViewModel = koinViewModel()
     val chatState by chat.state.collectAsStateWithLifecycle()
     val sidebar = rememberSidebarState()
+    var attentionRequest by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
@@ -431,6 +433,7 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
                 profile = chatsProfile,
                 selectedId = openSessionId,
                 visible = sidebar.isOpen,
+                attentionRequest = attentionRequest,
                 onOpenSession = { session, readUpTo ->
                     if (session.id != openSessionId) app.openSession(session.id, session.displayTitle, readUpTo)
                     closeDrawerToChat()
@@ -512,6 +515,10 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
                     ChatScreen(
                         target = route.target,
                         onOpenSidebar = { scope.launch { sidebar.toggle() } },
+                        onOpenNeedsAttention = {
+                            attentionRequest++
+                            scope.launch { if (!sidebar.isOpen) sidebar.toggle() }
+                        },
                         onNewChat = app::newChat,
                         onOpenMenu = openSessionId?.let { { menuOpen = true } },
                         onOpenChat = { id, title -> app.openSession(id, title ?: "Untitled session") },

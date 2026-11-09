@@ -238,6 +238,8 @@ fun SessionsSidebar(
     profile: String?,
     selectedId: String?,
     visible: Boolean,
+    /** A new request opens the existing attention filter, even from another sidebar page. */
+    attentionRequest: Int = 0,
     /** Opens a chat, with how far it had been read when it has new messages since (null otherwise). */
     onOpenSession: (session: SessionSummary, readUpTo: Double?) -> Unit,
     /** A new chat; [cwd] is the folder of the project the list shows, when one is picked. */
@@ -364,6 +366,22 @@ fun SessionsSidebar(
     fun closeSearch() {
         searchOpen = false
         viewModel.query.clearText()
+    }
+
+    LaunchedEffect(attentionRequest) {
+        if (attentionRequest == 0) return@LaunchedEffect
+        closeSearch()
+        scheduledOpen = false
+        inboxOpen = false
+        capabilitiesOpen = false
+        configOpen = false
+        pluginsOpen = false
+        insightsOpen = false
+        routinesOf = null
+        bots.setMode(SidebarMode.Chats)
+        viewModel.setFilter(SessionListFilter.Recent)
+        viewModel.selectProject(null)
+        viewModel.setAttentionFilter(AttentionFilter.NeedsAttention)
     }
 
     fun openSidebarPage(page: SidebarPage) {

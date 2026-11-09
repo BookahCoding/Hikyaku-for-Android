@@ -65,6 +65,11 @@ import dev.hermeskotlin.designsystem.caption
 import dev.hermeskotlin.designsystem.colors
 import dev.hermeskotlin.designsystem.components.IconButton
 import dev.hermeskotlin.designsystem.components.MinTouchTarget
+import dev.hermeskotlin.designsystem.components.Button
+import dev.hermeskotlin.designsystem.components.ButtonVariant
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.heightIn
 import dev.hermeskotlin.designsystem.label
 import dev.hermeskotlin.designsystem.onAccent
 import dev.hermeskotlin.designsystem.radii
@@ -84,6 +89,21 @@ import dev.hermeskotlin.ui.sessions.WaitingLine
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.time.Clock
+
+/** Explicit routes to the attention filter and the next waiting chat; all targets can grow with text. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun AttentionBar(badge: SessionsBadge, onOpen: () -> Unit, onNext: (() -> Unit)?) {
+    FlowRow(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Button("${badge.count} need you", onClick = onOpen, variant = ButtonVariant.Secondary,
+            leadingIcon = Lucide.ShieldAlert, modifier = Modifier.heightIn(min = MinTouchTarget))
+        if (onNext != null) Button("Next waiting task", onClick = onNext, variant = ButtonVariant.Ghost,
+            modifier = Modifier.heightIn(min = MinTouchTarget))
+    }
+}
 
 /**
  * The top bar's Sessions button, with a dot when another chat needs the user: the accent for a reply, the

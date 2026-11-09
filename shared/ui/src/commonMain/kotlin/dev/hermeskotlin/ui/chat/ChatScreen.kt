@@ -344,6 +344,7 @@ fun ChatScreen(
     onDismissWaiting: (WaitingLine) -> Unit = {},
     /** Goes to the next chat needing the user; false when none does. Null offers no Next. */
     onNextChat: (() -> Boolean)? = null,
+    onOpenNeedsAttention: (() -> Unit)? = null,
 ) {
     LaunchedEffect(target) { viewModel.open(target) }
     val transcript = viewModel.transcript.collectAsStateWithLifecycle().value
@@ -482,6 +483,7 @@ fun ChatScreen(
         wallpaper = rememberChatWallpaper(),
         place = target.gateway.label,
         profile = target.profile,
+        composerIdentity = target,
         sessionsBadge = sessionsBadge,
         otherChatBanner = otherChatBanner,
         onOpenOtherChat = onOpenOtherChat,
@@ -490,6 +492,7 @@ fun ChatScreen(
         onOpenWaiting = onOpenWaiting,
         onDismissWaiting = onDismissWaiting,
         onNextChat = onNextChat?.let { next -> { if (!next()) notice = "Nothing waiting" } },
+        onOpenNeedsAttention = onOpenNeedsAttention,
     )
 
     AttachSheet(visible = attachOpen, onDismiss = { attachOpen = false }, picker = attachmentPicker)
@@ -604,6 +607,8 @@ internal fun ChatView(
     placeholder: String,
     notice: String?,
     actions: ChatActions,
+    /** The route, including a fresh-chat nonce, keeps per-draft controls from leaking across chats. */
+    composerIdentity: Any? = state.storedSessionId,
     widgetFiles: WidgetFiles? = null,
     /** The prompt being edited in the composer, whose send replaces it. */
     editing: String? = null,
@@ -637,12 +642,14 @@ internal fun ChatView(
     onOpenWaiting: (WaitingLine) -> Unit = {},
     onDismissWaiting: (WaitingLine) -> Unit = {},
     onNextChat: (() -> Unit)? = null,
+    onOpenNeedsAttention: (() -> Unit)? = null,
 ) {
+    val readingMode = LocalAppSettings.current.readingMode
     Box(
         Modifier
             .fillMaxSize()
             .background(Theme[colors][background])
-            .then(if (wallpaper == null) Modifier.halo() else Modifier),
+            .then(if (wallpaper == null && !readingMode) Modifier.halo() else Modifier),
         contentAlignment = Alignment.TopCenter,
     ) {
         // A voice chat fills the screen until folded to the panel over the chat; each new one opens full.
@@ -680,6 +687,13 @@ internal fun ChatView(
                 sessionsBadge = sessionsBadge,
                 onNextChat = onNextChat,
             )
+            if (!sessionsBadge.none && onOpenNeedsAttention != null) {
+                AttentionBar(
+                    badge = sessionsBadge,
+                    onOpen = onOpenNeedsAttention,
+                    onNext = onNextChat.takeIf { state.inputRequests.isEmpty() && sessionsBadge.waiting > 0 },
+                )
+            }
             waitingLine?.let { line ->
                 WaitingLineBar(line, onOpen = { onOpenWaiting(line) }, onDismiss = { onDismissWaiting(line) })
             }
@@ -688,10 +702,8 @@ internal fun ChatView(
             val dockInset = with(LocalDensity.current) { dockHeight.toDp() }
             // Reading back up the chat folds the composer to one line; nearing the end opens it again.
             val composerFold = remember { ComposerFold() }
-            // The list keeps the open composer's height below the last message, so folding it doesn't move the end
-            // and undo the fold; only the jump button and the pet follow the composer's real height.
-            var composerShrink by remember { mutableIntStateOf(0) }
-            val listInset = with(LocalDensity.current) { (dockHeight + composerShrink).toDp() }
+            // Empty and unfocused stays compact independently of scrolling, so the transcript can use the space it frees.
+            val listInset = dockInset
             // What scrolls under the composer is captured here and frosted behind it.
             val hazeState = rememberHazeState()
             // Comments wait in the composer, so the selection menus offer them only while it shows.
@@ -728,7 +740,7 @@ internal fun ChatView(
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 Box(Modifier.fillMaxSize().hazeSource(hazeState)) {
-                    if (wallpaper != null) ChatWallpaper(wallpaper, LocalAppSettings.current.wallpaperStrength, Modifier.fillMaxSize())
+                    if (wallpaper != null && !readingMode) ChatWallpaper(wallpaper, LocalAppSettings.current.wallpaperStrength, Modifier.fillMaxSize())
                     if (state.historyLoaded && state.messages.isNotEmpty()) {
                         CompositionLocalProvider(
                             LocalMediaLoader provides actions::loadMedia,
@@ -841,8 +853,9 @@ internal fun ChatView(
                         focusComment = focusComment,
                         onCommentFocused = { focusComment = null },
                         composerFocus = composerFocus,
+                        composerIdentity = composerIdentity,
                         composerFold = composerFold,
-                        onComposerShrink = { composerShrink = it },
+                        onComposerShrink = {},
                         onOpenModels = onOpenModels,
                         onAttach = onAttach,
                         onDictate = onDictate,
@@ -853,7 +866,7 @@ internal fun ChatView(
                     )
                 }
                 // The pet sits on the composer's top edge, over the conversation rather than in the dock's height.
-                if (sprite != null && LocalAppSettings.current.showPet && state.inputRequests.isEmpty()) {
+                if (sprite != null && LocalAppSettings.current.showPet && !readingMode && state.inputRequests.isEmpty()) {
                     PetView(
                         sprite = sprite,
                         state = rememberPetState(state),
@@ -912,6 +925,7 @@ private fun ColumnScope.Dock(
     focusComment: Long?,
     onCommentFocused: () -> Unit,
     composerFocus: FocusRequester,
+    composerIdentity: Any?,
     composerFold: ComposerFold,
     onComposerShrink: (Int) -> Unit,
     onOpenModels: () -> Unit,
@@ -956,6 +970,7 @@ private fun ColumnScope.Dock(
             onStop = actions::interrupt,
             // Not once it's over: the card fades out with the turn already ended.
             canStop = connected && state.running,
+            compact = !composerFold.following || LocalAppSettings.current.readingMode,
         )
     }
     if (!state.running) TodoPanel(state.todos, live = state.todosLive, hazeState = hazeState)
@@ -1030,6 +1045,7 @@ private fun ColumnScope.Dock(
             focusComment = focusComment,
             onCommentFocused = onCommentFocused,
             focus = composerFocus,
+            identity = composerIdentity,
             fold = composerFold,
             onShrink = onComposerShrink,
             onOpenModels = onOpenModels,
@@ -1421,7 +1437,7 @@ private fun Messages(
             state = listState,
             modifier = Modifier.fillMaxSize().nestedScroll(readBack),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp + bottomInset),
-            verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.Bottom),
+            verticalArrangement = Arrangement.spacedBy(20.dp, if (LocalAppSettings.current.readingMode) Alignment.Top else Alignment.Bottom),
         ) {
             itemsIndexed(messages, key = { _, it -> it.key }) { index, message ->
                 // Rows of one exchange with another bot are tied together by a line in that bot's colour.
@@ -2085,7 +2101,7 @@ private fun AssistantReply(
         // What's happening now is said once, above the composer; the reply keeps only what it's made of.
         if (showReasoning) Reasoning(message.reasoning, message.streaming)
         // While the turn runs its finished steps are listed as they land; once it ends they fold into the pill.
-        if (showTools) if (message.streaming) LiveSteps(listedTools, message.key) else Tools(listedTools, message.key)
+        if (showTools) if (message.streaming && !settings.readingMode) LiveSteps(listedTools, message.key) else Tools(listedTools, message.key)
         if (generated.isNotEmpty()) ReplyMediaList(remember(generated) { generated.map { it.asMedia() } })
         // Shown whatever the tool-activity setting: the work happens out of sight, in other agents.
         message.tools.filter { it.name == "delegate_task" }.forEach { DelegationCard(it) }
@@ -2121,7 +2137,7 @@ private fun AssistantReply(
                 Text(warningText, style = Theme[typography][bodySmall], color = Theme[colors][warning])
             }
         }
-        val usage = message.usage?.takeIf { settings.showUsage && !message.streaming }
+        val usage = message.usage?.takeIf { settings.showUsage && !settings.readingMode && !message.streaming }
         val actionable = !message.streaming && text.isNotBlank()
         // A reply of only code or files has nothing to say.
         val speakable = if (actionable) remember(text) { readAloudText(text).isNotEmpty() } else false
@@ -2176,7 +2192,7 @@ internal fun replyUsage(input: Long, output: Long): String = "${compactCount(inp
 /** When a prompt was sent or a reply finished, in small type; nothing when the setting is off or there's no time. */
 @Composable
 internal fun MessageTimeLabel(epochSeconds: Double?, modifier: Modifier = Modifier) {
-    if (!LocalAppSettings.current.showTimestamps || epochSeconds == null) return
+    if (!LocalAppSettings.current.showTimestamps || LocalAppSettings.current.readingMode || epochSeconds == null) return
     val use24Hour = uses24HourClock()
     val label = remember(epochSeconds, use24Hour) { messageTime(epochSeconds, use24Hour) }
     if (label.isNotEmpty()) Text(label, style = Theme[typography][caption], color = Theme[colors][textTertiary], modifier = modifier)
@@ -2496,7 +2512,7 @@ private fun Disclosure(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
-            Modifier.clip(RoundedCornerShape(Theme[radii][radiusMedium])).clickable(onClick = onToggle).padding(vertical = 4.dp, horizontal = 2.dp),
+            Modifier.clip(RoundedCornerShape(Theme[radii][radiusMedium])).clickable(onClick = onToggle).heightIn(min = MinTouchTarget).padding(vertical = 4.dp, horizontal = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -2524,7 +2540,7 @@ private fun Disclosure(
 /** The reply's reasoning, folded; live progress is the dock's to show. */
 @Composable
 private fun Reasoning(text: String, streaming: Boolean) {
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember(LocalAppSettings.current.readingMode) { mutableStateOf(false) }
     Disclosure(
         icon = { UnstyledIcon(Lucide.Brain, contentDescription = null, tint = Theme[colors][textTertiary], modifier = Modifier.size(16.dp)) },
         label = "Reasoning",
@@ -2538,7 +2554,7 @@ private fun Reasoning(text: String, streaming: Boolean) {
 /** The tools the reply used, folded; the one running now is named above the composer instead. */
 @Composable
 private fun Tools(tools: List<ToolActivity>, messageKey: String) {
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember(LocalAppSettings.current.readingMode) { mutableStateOf(false) }
     val icons = remember(tools) { tools.map { toolIcon(it.name) }.distinct().take(3) }
     val (ran, took) = workedLabel(tools)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2855,8 +2871,8 @@ private fun Banner(message: String, actionLabel: String?, onAction: () -> Unit, 
 /**
  * Desktop's composer stood up for a phone: a flat outlined box, the text on top; beneath it +, dictation
  * and voice chat, the model and thinking level as quiet text, and the round send button. While a task runs,
- * Stop is on the live task card above; a message typed mid-task gets a Send that steers, queues or stops and
- * sends as Settings says; holding it picks another way for that message.
+ * Stop is on the live task card above. The explicit mode menu selects how the next message joins a running
+ * task; the separate Send button submits it.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -2873,6 +2889,7 @@ private fun Composer(
     focusComment: Long?,
     onCommentFocused: () -> Unit,
     focus: FocusRequester,
+    identity: Any?,
     /** How near the end the reader is, which folds the composer to one line away from it. */
     fold: ComposerFold,
     /** How many px shorter than open the composer stands right now. */
@@ -2887,6 +2904,9 @@ private fun Composer(
     // Attachments or comments alone are sendable: the gateway gets Desktop's image prompt or the file references.
     val hasText = actions.composer.text.isNotBlank() || attachments.isNotEmpty() || comments.isNotEmpty()
     val runningSend by actions.runningSend.collectAsStateWithLifecycle()
+    val sendSelection = remember(identity, state.storedSessionId, actions) { SendModeSelection() }
+    // A submitted or cleared draft spends its one-message choice, including slash commands.
+    LaunchedEffect(hasText, state.running) { if (!hasText || !state.running) sendSelection.clear() }
     val shape = RoundedCornerShape(Theme[radii][radiusXLarge])
     val page = Theme[colors][background]
     val frosted = remember(page) {
@@ -2902,20 +2922,18 @@ private fun Composer(
     val imeVisible = WindowInsets.isImeVisible
     val focusManager = LocalFocusManager.current
     LaunchedEffect(imeVisible) { if (!imeVisible && focused) focusManager.clearFocus() }
-    // How open the composer stands, 1 open to 0 folded to a line. It tracks the scroll as it goes, and springs
-    // across when a tap, the keyboard or a draft holds it open or lets go.
-    val open = remember { Animatable(1f) }
+    // A draft, editing or dictation keeps the field visible; an empty unfocused composer is one line.
+    val open = remember { Animatable(composerExpansion(false, hasText, dictation.active, editing)) }
     // Something being written keeps it open: worked out here, where the text is read anyway, not in ChatView,
     // which would then recompose on every keystroke.
-    val busyNow by rememberUpdatedState(hasText || dictation.active)
+    val busyNow by rememberUpdatedState(hasText)
+    val dictatingNow by rememberUpdatedState(dictation.active)
+    val editingNow by rememberUpdatedState(editing)
     val range = with(LocalDensity.current) { FOLD_RANGE.toPx() }
     LaunchedEffect(fold, range) {
         snapshotFlow {
-            val nearEnd = fold.nearEnd(range)
-            nearEnd to if (fold.heldOpen || focused || busyNow) 1f else nearEnd
-        }.collectLatest { (nearEnd, target) ->
-            // At the end it's open anyway; scrolling up from there folds it again.
-            if (nearEnd >= 1f) fold.heldOpen = false
+            composerExpansion(focused, busyNow, dictatingNow, editingNow)
+        }.collectLatest { target ->
             if (abs(target - open.value) > 0.2f) open.animateTo(target, spring(stiffness = Spring.StiffnessMediumLow)) else open.snapTo(target)
         }
     }
@@ -2962,13 +2980,13 @@ private fun Composer(
                     // The same test send() makes: with attachments, slash text goes out as a prompt, not a command.
                     val command = attachments.isEmpty() && SlashCommand.parse(actions.composer.text.toString().trim()) != null
                     // A steer can't carry files; send() queues those instead, so say that.
-                    val runningMode = sendModeFor(running = true, picked = null, setting = runningSend, withAttachments = attachments.isNotEmpty())!!
+                    val runningMode = sendSelection.mode(true, runningSend, attachments.isNotEmpty())!!
                     // Mid-turn, say what Send will do with the message.
                     if (state.running && editing) {
                         Text(
                             "Send the edit once this reply finishes.",
                             style = Theme[typography][caption],
-                            color = Theme[colors][textTertiary],
+                            color = Theme[colors][textSecondary],
                             modifier = Modifier.padding(start = 12.dp, top = 10.dp),
                         )
                     } else if (state.running && hasText && command) {
@@ -2980,10 +2998,8 @@ private fun Composer(
                         // The buttons are full 48dp targets, which already space their icons apart.
                     ) {
                         AttachButton(onClick = onAttach, enabled = attachments.size < OutgoingAttachment.MAX_COUNT)
-                        // Queue and Steer need the room mid-task, so the model pill folds to its sparkle meanwhile.
-                        val segments = state.running && hasText && !editing && !command
                         Box(Modifier.weight(1f).padding(start = 2.dp), contentAlignment = Alignment.CenterStart) {
-                            ModelPill(state, picker, onClick = onOpenModels, compact = segments)
+                            ModelPill(state, picker, onClick = onOpenModels, compact = true)
                         }
                         if (showMic(dictation)) Snug { DictationButton(dictation, onClick = onDictate, enabled = connected) }
                         // Voice chat waits for the task to end, so while one runs its place goes to the ways to send.
@@ -2992,19 +3008,26 @@ private fun Composer(
                         if (state.running && hasText && !editing) {
                             if (command) {
                                 // A command runs at once; there's nothing to choose.
-                                Snug { SendButton(SendIcon.Send, onClick = { actions.send() }, enabled = connected) }
+                                LabelledSendButton(onClick = { actions.send() }, enabled = connected)
                             } else {
-                                RunningSendSegments(
-                                    mode = runningMode,
-                                    attachments = attachments.isNotEmpty(),
+                                LabelledSendButton(
+                                    onClick = { sendSelection.submit(state.running, runningSend, attachments.isNotEmpty(), actions::send) },
                                     enabled = connected,
-                                    onSend = actions::send,
                                 )
                             }
                         } else {
                             // While a task runs this only waits: nothing typed yet, or an edit, which goes once it ends.
-                            Snug { SendButton(SendIcon.Send, onClick = { actions.send() }, enabled = connected && hasText && !state.running) }
+                            LabelledSendButton(onClick = { actions.send() }, enabled = connected && hasText && !state.running)
                         }
+                    }
+                    if (state.running && hasText && !editing && !command) {
+                        RunningSendModeMenu(runningMode, connected, onSelect = sendSelection::select)
+                        Text(
+                            sendSelection.explanation(true, runningSend, attachments.isNotEmpty()).orEmpty(),
+                            style = Theme[typography][caption],
+                            color = Theme[colors][textSecondary],
+                            modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
+                        )
                     }
                 }
             },
@@ -3118,106 +3141,43 @@ private fun CommandHint() {
     )
 }
 
-/** The two ways a message typed mid-task is shown to go: Queue, and Steer or, when that's the setting, Stop & send. */
-internal fun runningSegments(mode: RunningSend): List<RunningSend> =
-    listOf(RunningSend.Queue, if (mode == RunningSend.StopAndSend) RunningSend.StopAndSend else RunningSend.Steer)
-
-/**
- * Send while a task runs, as a segmented pill: each half sends the message its way, and the one [mode] picks
- * (the setting) is filled. A steer can't carry files, so with [attachments] it's off. Holding either half
- * offers the way that isn't shown.
- */
+/** The menu chooses only; the separate Send action submits the draft. */
 @Composable
-private fun RunningSendSegments(mode: RunningSend, attachments: Boolean, enabled: Boolean, onSend: (RunningSend) -> Unit) {
-    val haptics = LocalHapticFeedback.current
+private fun RunningSendModeMenu(mode: RunningSend, enabled: Boolean, onSelect: (RunningSend) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
-    val shown = runningSegments(mode)
-    val others = RunningSend.entries.filter { it !in shown && !(it == RunningSend.Steer && attachments) }
     DropdownMenu(
         expanded = menuOpen,
         onExpandedChange = { menuOpen = it },
-        // The composer sits at the bottom of the screen; the choices open upward, over the chat.
         above = true,
         items = {
-            others.forEach { choice ->
+            RunningSend.entries.forEach { choice ->
                 MenuAction(choice.label, choice.icon, onClick = {
                     menuOpen = false
-                    onSend(choice)
+                    onSelect(choice)
                 })
             }
         },
     ) {
-        // The pill is drawn 38dp tall behind the halves; each half takes taps over the full touch height.
-        val track = Theme[colors][surface3]
-        Row(
-            Modifier
-                .heightIn(min = MinTouchTarget)
-                .height(IntrinsicSize.Min)
-                .alpha(if (enabled) 1f else 0.45f)
-                .drawBehind {
-                    // Grows with large text so the filled half stays inside it.
-                    val h = maxOf(38.dp.toPx(), size.height - 10.dp.toPx())
-                    drawRoundRect(track, topLeft = Offset(0f, (size.height - h) / 2), size = Size(size.width, h), cornerRadius = CornerRadius(h / 2))
-                }
-                .padding(horizontal = 3.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            shown.forEach { way ->
-                val on = way == mode
-                val usable = enabled && !(way == RunningSend.Steer && attachments)
-                val tint = Theme[colors][if (on) onUserBubble else textTertiary]
-                val interaction = remember { MutableInteractionSource() }
-                Box(
-                    Modifier
-                        .fillMaxHeight()
-                        .combinedClickable(
-                            enabled = usable,
-                            onClick = { onSend(way) },
-                            onLongClick = if (others.isEmpty()) null else {
-                                {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    menuOpen = true
-                                }
-                            },
-                            onClickLabel = "Send",
-                            onLongClickLabel = "Other ways to send",
-                            interactionSource = interaction,
-                            indication = null,
-                        )
-                        .semantics {
-                            contentDescription = "${way.label}: ${way.summary}"
-                            role = Role.Button
-                            // The filled half is the setting's way; a steer can't carry files.
-                            selected = on
-                            if (enabled && !usable) stateDescription = "Can't carry files"
-                        },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Row(
-                        Modifier
-                            .clearAndSetSemantics {}
-                            .alpha(if (usable || !enabled) 1f else 0.45f)
-                            .heightIn(min = 32.dp)
-                            .clip(CircleShape)
-                            .then(if (on) Modifier.background(Theme[colors][userBubble], CircleShape) else Modifier)
-                            .indication(interaction, rememberColoredIndication(tint))
-                            .padding(horizontal = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        UnstyledIcon(way.icon, contentDescription = null, tint = tint, modifier = Modifier.size(13.dp))
-                        Text(
-                            way.label,
-                            style = Theme[typography][label].copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium),
-                            color = tint,
-                            maxLines = 1,
-                        )
-                    }
-                }
-            }
-        }
+        Button(
+            "Send mode: ${mode.label}",
+            onClick = { menuOpen = true },
+            enabled = enabled,
+            variant = ButtonVariant.Ghost,
+            trailingIcon = Lucide.ChevronDown,
+            modifier = Modifier.fillMaxWidth().heightIn(min = MinTouchTarget)
+                .semantics { stateDescription = "${mode.label}. ${mode.summary}. Choosing a mode does not send." },
+        )
     }
+}
+
+/** A visible action label distinguishes submission from mode selection. */
+@Composable
+private fun LabelledSendButton(onClick: () -> Unit, enabled: Boolean) {
+    Button(
+        "Send", onClick = onClick, enabled = enabled,
+        leadingIcon = Lucide.ArrowUp,
+        modifier = Modifier.heightIn(min = MinTouchTarget),
+    )
 }
 
 /** The dock's shadow: soft and wide, a little below it, so it floats over the chat. */

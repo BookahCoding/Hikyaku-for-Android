@@ -203,8 +203,11 @@ internal fun ProgressPanel(
     turnKey: String?,
     onStop: () -> Unit,
     canStop: Boolean,
+    /** Reading back keeps the action and Stop visible without the verbose details. */
+    compact: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    LaunchedEffect(compact) { if (compact) expanded = false }
     val plan = todos?.takeIf { it.items.isNotEmpty() }
     val statusDetail = status?.takeIf { it.isNotBlank() && it != step.title }
     val toolDetail = tool?.let { t -> listOfNotNull(t.name, t.detail?.takeIf { it.isNotBlank() }).joinToString(": ") }
@@ -222,7 +225,7 @@ internal fun ProgressPanel(
                 },
             ),
         ) {
-            CardHeader(step, turnKey, plan, hasDetails, expanded, onStop, canStop)
+            CardHeader(if (compact) step.copy(detail = null) else step, turnKey, plan.takeUnless { compact }, hasDetails, expanded, onStop, canStop)
         }
         AnimatedVisibility(visible = expanded && hasDetails) {
             Column(
