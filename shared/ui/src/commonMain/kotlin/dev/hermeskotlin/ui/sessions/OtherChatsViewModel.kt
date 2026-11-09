@@ -88,6 +88,10 @@ class OtherChatsViewModel(
     /** What the Sessions button shows: chats waiting on the user and replies that are news, not every unread chat. */
     val badge: StateFlow<SessionsBadge> = _badge.asStateFlow()
 
+    /** The badge's combined destination, including Bot Chats absent from the ordinary session list. */
+    private val _attentionRows = MutableStateFlow<List<OtherChat>>(emptyList())
+    val attentionRows: StateFlow<List<OtherChat>> = _attentionRows.asStateFlow()
+
     private val _banner = MutableStateFlow<OtherChatEvent?>(null)
 
     /** What newly happened in another chat, for the banner over the chat; null when there's nothing to say. */
@@ -145,6 +149,7 @@ class OtherChatsViewModel(
             watch.clear()
             _others.value = OtherChats()
             _badge.value = SessionsBadge()
+            _attentionRows.value = emptyList()
             _banner.value = null
             dismissedWaiting.clear()
             _waitingLine.value = null
@@ -192,6 +197,7 @@ class OtherChatsViewModel(
         val others = OtherChats(_others.value.chats.filterKeys { it !in ids })
         _others.value = others
         _badge.value = watch.badge(others)
+        _attentionRows.value = watch.queue(others)
         publishWaitingLine(others)
     }
 
@@ -256,6 +262,7 @@ class OtherChatsViewModel(
                 listReadAt = null
                 _others.value = OtherChats()
                 _badge.value = SessionsBadge()
+                _attentionRows.value = emptyList()
                 _banner.value = null
                 dismissedWaiting.clear()
                 _waitingLine.value = null
@@ -379,6 +386,7 @@ class OtherChatsViewModel(
                 _others.value = others
                 val event = watch.update(others, clock.now().toEpochMilliseconds(), settled)
                 _badge.value = watch.badge(others)
+                _attentionRows.value = watch.queue(others)
                 publishWaitingLine(others)
                 // A banner for something since dealt with (answered, read, archived) goes.
                 _banner.update { shown -> shown?.takeIf { others.stillTrue(it) } }

@@ -238,8 +238,10 @@ fun SessionsSidebar(
     profile: String?,
     selectedId: String?,
     visible: Boolean,
-    /** A new request opens the existing attention filter, even from another sidebar page. */
+    /** A new request opens the combined attention list, even from another sidebar page. */
     attentionRequest: Int = 0,
+    attentionRows: List<OtherChat> = emptyList(),
+    onOpenAttentionChat: (OtherChat) -> Unit = {},
     /** Opens a chat, with how far it had been read when it has new messages since (null otherwise). */
     onOpenSession: (session: SessionSummary, readUpTo: Double?) -> Unit,
     /** A new chat; [cwd] is the folder of the project the list shows, when one is picked. */
@@ -315,11 +317,13 @@ fun SessionsSidebar(
     var searchOpen by remember { mutableStateOf(false) }
     var scheduledOpen by remember { mutableStateOf(false) }
     var inboxOpen by remember { mutableStateOf(false) }
+    var attentionOpen by remember { mutableStateOf(false) }
     // A tapped Inbox notification, passed on by the app once it opened the drawer: the Inbox, at that run. The
     // page takes the key and opens the run itself.
     var inboxOpenKey by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(inboxLink) {
         val link = inboxLink ?: return@LaunchedEffect
+        attentionOpen = false
         inboxOpen = true
         inboxOpenKey = link.key
         onInboxLinkTaken(link)
@@ -378,10 +382,7 @@ fun SessionsSidebar(
         pluginsOpen = false
         insightsOpen = false
         routinesOf = null
-        bots.setMode(SidebarMode.Chats)
-        viewModel.setFilter(SessionListFilter.Recent)
-        viewModel.selectProject(null)
-        viewModel.setAttentionFilter(AttentionFilter.NeedsAttention)
+        attentionOpen = true
     }
 
     fun openSidebarPage(page: SidebarPage) {
@@ -397,8 +398,9 @@ fun SessionsSidebar(
     }
 
     // Back steps out of search or the Scheduled / Archived pages before it closes the drawer.
-    PlatformBackHandler(enabled = visible && (searchOpen || scheduledOpen || inboxOpen || routinesOf != null || capabilitiesOpen || configOpen || pluginsOpen || insightsOpen || state.filter != SessionListFilter.Recent)) {
+    PlatformBackHandler(enabled = visible && (attentionOpen || searchOpen || scheduledOpen || inboxOpen || routinesOf != null || capabilitiesOpen || configOpen || pluginsOpen || insightsOpen || state.filter != SessionListFilter.Recent)) {
         when {
+            attentionOpen -> attentionOpen = false
             searchOpen -> closeSearch()
             scheduledOpen -> scheduledOpen = false
             inboxOpen -> inboxOpen = false
@@ -462,7 +464,9 @@ fun SessionsSidebar(
             .halo()
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start)),
     ) {
-        if (inboxOpen && !searchOpen) {
+        if (attentionOpen) {
+            AttentionInbox(attentionRows, onBack = { attentionOpen = false }, onOpen = onOpenAttentionChat)
+        } else if (inboxOpen && !searchOpen) {
             InboxPage(
                 gateway = gateway,
                 visible = visible,

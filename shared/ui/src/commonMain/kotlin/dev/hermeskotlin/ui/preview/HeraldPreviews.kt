@@ -23,6 +23,9 @@ import dev.hermeskotlin.designsystem.components.SheetHeader
 import dev.hermeskotlin.ui.chat.PendingComment
 import dev.hermeskotlin.core.chat.OutgoingAttachment
 import dev.hermeskotlin.ui.sessions.SessionsBadge
+import dev.hermeskotlin.ui.sessions.AttentionInbox
+import dev.hermeskotlin.ui.sessions.OtherChat
+import dev.hermeskotlin.core.chat.Waiting
 import dev.hermeskotlin.ui.connect.AccessToken
 import dev.hermeskotlin.ui.connect.ConnectUiState
 import dev.hermeskotlin.ui.connect.ConnectView
@@ -179,6 +182,7 @@ enum class PreviewScene(val label: String) {
     MidTaskFiles("Sending files while a task runs"),
     Reading("A quieter reading layout"),
     NeedsYou("Other chats waiting for you"),
+    NeedsYouList("Chats and Bot Chats needing you together"),
     ConnectionCheck("The connection check"),
     LongChat("A chat to scroll back through"),
     Tables("Tables in an answer"),
@@ -329,6 +333,17 @@ fun HeraldPreview(scene: PreviewScene, dark: Boolean = true, accent: String = DE
                 })
                 PreviewScene.Reading -> SampleChat(ChatSamples.reply)
                 PreviewScene.NeedsYou -> SampleChat(ChatSamples.reply, sessionsBadge = SessionsBadge(waiting = 2, replies = 1))
+                PreviewScene.NeedsYouList -> OpenSidebar {
+                    SidebarPage {
+                        AttentionInbox(
+                            listOf(
+                                OtherChat("sample-bot", "Garden helper", waiting = Waiting.Approval, bot = "garden"),
+                                OtherChat("sample-chat", "Weekend notes", unread = true),
+                            ),
+                            onBack = {}, onOpen = {},
+                        )
+                    }
+                }
                 PreviewScene.Offline -> SampleChat(ChatSamples.reply, offline = true)
                 PreviewScene.EmptyPage -> OpenSidebar {
                     SidebarPage {

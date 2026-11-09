@@ -393,6 +393,7 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
         )
     }
     val sessionsBadge by others.badge.collectAsStateWithLifecycle()
+    val attentionRows by others.attentionRows.collectAsStateWithLifecycle()
     val banner by others.banner.collectAsStateWithLifecycle()
     val waitingLine by others.waitingLine.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
@@ -434,6 +435,8 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
                 selectedId = openSessionId,
                 visible = sidebar.isOpen,
                 attentionRequest = attentionRequest,
+                attentionRows = attentionRows,
+                onOpenAttentionChat = { row -> openOther(row.id, row.title, row.bot) },
                 onOpenSession = { session, readUpTo ->
                     if (session.id != openSessionId) app.openSession(session.id, session.displayTitle, readUpTo)
                     closeDrawerToChat()
