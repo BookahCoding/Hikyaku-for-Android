@@ -21,6 +21,11 @@ import dev.hermeskotlin.designsystem.components.ButtonVariant
 import dev.hermeskotlin.designsystem.components.LocalGlow
 import dev.hermeskotlin.designsystem.components.SheetHeader
 import dev.hermeskotlin.ui.chat.PendingComment
+import dev.hermeskotlin.core.chat.OutgoingAttachment
+import dev.hermeskotlin.ui.sessions.SessionsBadge
+import dev.hermeskotlin.ui.sessions.AttentionInbox
+import dev.hermeskotlin.ui.sessions.OtherChat
+import dev.hermeskotlin.core.chat.Waiting
 import dev.hermeskotlin.ui.connect.AccessToken
 import dev.hermeskotlin.ui.connect.ConnectUiState
 import dev.hermeskotlin.ui.connect.ConnectView
@@ -174,6 +179,10 @@ enum class PreviewScene(val label: String) {
     GoalStrip("A chat with a goal, loop and heartbeat above the composer"),
     Comments("Comments on a reply"),
     MidTask("Typing while a task runs"),
+    MidTaskFiles("Sending files while a task runs"),
+    Reading("A quieter reading layout"),
+    NeedsYou("Other chats waiting for you"),
+    NeedsYouList("Chats and Bot Chats needing you together"),
     ConnectionCheck("The connection check"),
     LongChat("A chat to scroll back through"),
     Tables("Tables in an answer"),
@@ -210,7 +219,7 @@ fun HeraldPreview(scene: PreviewScene, dark: Boolean = true, accent: String = DE
     hermesTheme(palette)(if (dark) ColorScheme.Dark else ColorScheme.Light) {
         CompositionLocalProvider(
             LocalAppTheme provides palette,
-            LocalAppSettings provides AppSettings(showPet = false, glow = glow),
+            LocalAppSettings provides AppSettings(showPet = false, glow = glow, readingMode = scene == PreviewScene.Reading),
             LocalGlow provides glow,
         ) {
             when (scene) {
@@ -319,6 +328,22 @@ fun HeraldPreview(scene: PreviewScene, dark: Boolean = true, accent: String = DE
                 PreviewScene.Comments -> SampleChat(ChatSamples.reply, comments = remember { ChatSamples.comments() })
                 PreviewScene.LongChat -> SampleChat(ChatSamples.longChat)
                 PreviewScene.MidTask ->SampleChat(ChatSamples.working, composerText = "Also check the photos share")
+                PreviewScene.MidTaskFiles -> SampleChat(ChatSamples.working, composerText = "Review this note", attachments = remember {
+                    listOf(OutgoingAttachment("sample-note", "maintenance-notes.txt", "text/plain", "Synthetic maintenance notes".encodeToByteArray()))
+                })
+                PreviewScene.Reading -> SampleChat(ChatSamples.reply)
+                PreviewScene.NeedsYou -> SampleChat(ChatSamples.reply, sessionsBadge = SessionsBadge(waiting = 2, replies = 1))
+                PreviewScene.NeedsYouList -> OpenSidebar {
+                    SidebarPage {
+                        AttentionInbox(
+                            listOf(
+                                OtherChat("sample-bot", "Garden helper", waiting = Waiting.Approval, bot = "garden"),
+                                OtherChat("sample-chat", "Weekend notes", unread = true),
+                            ),
+                            onBack = {}, onOpen = {},
+                        )
+                    }
+                }
                 PreviewScene.Offline -> SampleChat(ChatSamples.reply, offline = true)
                 PreviewScene.EmptyPage -> OpenSidebar {
                     SidebarPage {
@@ -674,13 +699,15 @@ private class PreviewRoomActions : RoomActions {
 }
 
 @Composable
-private fun SampleChat(
+internal fun SampleChat(
     state: ChatState,
     voiceChat: VoiceChatState = VoiceChatState(),
     readAloud: ReadAloudState = ReadAloudState(),
     placeholder: String = ChatSamples.PLACEHOLDER,
     comments: List<PendingComment> = emptyList(),
     composerText: String = "",
+    attachments: List<OutgoingAttachment> = emptyList(),
+    sessionsBadge: SessionsBadge = SessionsBadge(),
     /** The gateway can't be reached and the link is being made again. */
     offline: Boolean = false,
 ) {
@@ -691,7 +718,7 @@ private fun SampleChat(
         connected = !offline,
         connectionLabel = "No connection · connecting again…",
         linkStatus = "Reconnecting…".takeIf { offline },
-        attachments = emptyList(),
+        attachments = attachments,
         attachmentError = null,
         comments = comments,
         voiceChat = voiceChat,
@@ -703,6 +730,9 @@ private fun SampleChat(
         notice = null,
         actions = remember(composerText) { PreviewChatActions(composerText) },
         onOpenSidebar = {},
+        sessionsBadge = sessionsBadge,
+        onOpenNeedsAttention = {},
+        onNextChat = {},
         onNewChat = {},
         onOpenMenu = {},
         onOpenModels = {},

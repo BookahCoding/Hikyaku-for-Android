@@ -99,6 +99,23 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }
+        // Offline synthetic journeys only; the fixture entry point is absent in release/dev/debug.
+        create("benchmark") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".benchmark"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
+        // Collect source-name rules, then let R8 rewrite them for the optimized shipped app.
+        create("profile") {
+            initWith(getByName("benchmark"))
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+    }
+    sourceSets.getByName("profile") {
+        kotlin.srcDir("src/benchmark/kotlin")
+        manifest.srcFile("src/benchmark/AndroidManifest.xml")
     }
 }
 
@@ -106,6 +123,7 @@ dependencies {
     implementation(projects.shared.ui)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.profileinstaller)
     // Links in replies open in a Custom Tab; App lock asks through BiometricPrompt (needs a FragmentActivity).
     implementation(libs.androidx.browser)
     implementation(libs.androidx.biometric)

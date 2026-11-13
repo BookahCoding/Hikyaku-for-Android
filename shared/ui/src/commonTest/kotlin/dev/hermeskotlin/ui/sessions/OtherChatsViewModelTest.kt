@@ -334,6 +334,42 @@ class OtherChatsViewModelTest {
     )
 
     @Test
+    fun needsYouDestinationIncludesABotChatMissingFromTheSessionList() = runTest(dispatcher) {
+        val socket = FakeSocket()
+        val vm = watching(socket)
+        vm.setBotChats(listOf(botRow(unread = false)))
+        socket.live["bot-b"] = "waiting"
+        sessions.refresh()
+        advanceTimeBy(15_000)
+
+        assertEquals(1, vm.badge.value.count)
+        assertEquals(listOf("bot-b"), vm.attentionRows.value.map { it.id })
+        val row = vm.attentionRows.value.single()
+        assertEquals("bot-b", row.id)
+        assertEquals("rex", row.bot)
+        assertEquals(vm.badge.value.count, vm.attentionRows.value.size)
+        assertEquals(vm.nextChat(), row)
+        vm.setOpenChat(setOf("bot-b"))
+        assertTrue(vm.attentionRows.value.isEmpty())
+    }
+
+    @Test
+    fun needsYouDestinationKeepsBothListedAndBotChatsInNextOrder() = runTest(dispatcher) {
+        val socket = FakeSocket()
+        val vm = watching(socket)
+        vm.setBotChats(listOf(botRow(unread = false)))
+        socket.live["bot-b"] = "waiting"
+        replyIn("b")
+        advanceTimeBy(15_000)
+
+        assertEquals(2, vm.badge.value.count)
+        assertEquals(listOf("bot-b", "b"), vm.attentionRows.value.map { it.id })
+        assertEquals(listOf("rex", null), vm.attentionRows.value.map { it.bot })
+        assertEquals(vm.badge.value.count, vm.attentionRows.value.size)
+        assertEquals(vm.nextChat(), vm.attentionRows.value.first())
+    }
+
+    @Test
     fun aBotChatsPreviewIsReadInTheBotsProfile() {
         runTest(dispatcher) {
             val vm = watching()

@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -147,13 +148,45 @@ internal fun DefaultMarkdownTypography.withTextStyle(style: TextStyle?): Default
  * GitHub-flavoured Markdown in the app's type and colors. Fenced code gets a language label, syntax
  * colors, horizontal scrolling (or wrapping, per [LocalCodeWrap]) and a copy button. TeX math between
  * `$…$`, `\(…\)`, `$$…$$` or `\[…\]` is typeset (see [MathMarkup]). [streaming] parses off the main thread
- * and keeps the previous render while text grows; settled text parses synchronously so list items don't
- * change height after they appear. [textStyle] keeps blocks compact, for folded reasoning summaries;
- * headings use weight rather than size and code keeps its monospace font.
+ * and keeps the previous render while text grows. Long settled replies also prepare math and parse off
+ * the main thread; small settled text stays synchronous. [textStyle] keeps blocks compact, for folded
+ * reasoning summaries; headings use weight rather than size and code keeps its monospace font.
  */
 @Composable
 fun MarkdownText(text: String, modifier: Modifier = Modifier, streaming: Boolean = false, textStyle: TextStyle? = null) {
-    val prepared = remember(text) { MathMarkup.prepare(text) }
+    val continuity = remember { MarkdownRenderContinuity() }
+    key(continuity.keyFor(text)) {
+        PreparedMarkdownText(text, modifier, streaming, textStyle)
+    }
+}
+
+private const val IMMEDIATE_MARKDOWN_LIMIT = 2_048
+private val markdownPreparations = MarkdownPreparationCache()
+
+@Composable
+private fun rememberPreparedMarkdown(text: String, streaming: Boolean): String {
+    val immediate = !streaming && text.length <= IMMEDIATE_MARKDOWN_LIMIT
+    val exact = remember(text, immediate) {
+        markdownPreparations.cached(text) ?: if (immediate) {
+            PreparedMarkdown(text, MathMarkup.prepare(text)).also(markdownPreparations::put)
+        } else null
+    }
+    var ready by remember { mutableStateOf<PreparedMarkdown?>(null) }
+    LaunchedEffect(text, exact) {
+        if (exact == null) {
+            val prepared = prepareMarkdown(text)
+            // Back on the composition thread; cancelled/replaced work cannot publish or fill the cache.
+            markdownPreparations.put(prepared)
+            ready = prepared
+        } else ready = exact
+    }
+    // A replacement starts empty rather than flashing another source or raw formula links.
+    return exact?.content ?: ready?.visibleFor(text).orEmpty()
+}
+
+@Composable
+private fun PreparedMarkdownText(text: String, modifier: Modifier, streaming: Boolean, textStyle: TextStyle?) {
+    val prepared = rememberPreparedMarkdown(text, streaming)
     val replyStyle = Theme[typography][body].copy(color = Theme[colors][textColor])
     val compact = compactStyle(replyStyle, textStyle)
     val bodyStyle = compact ?: replyStyle
@@ -218,8 +251,9 @@ fun MarkdownText(text: String, modifier: Modifier = Modifier, streaming: Boolean
             inlineContent = inlineContent,
             imageTransformer = PictureTransformer,
             components = components,
+            // The outer continuity key discards replacements. Keep this reply through the final parse too.
             retainState = true,
-            immediate = !streaming,
+            immediate = !streaming && text.length <= IMMEDIATE_MARKDOWN_LIMIT,
         )
     }
 }

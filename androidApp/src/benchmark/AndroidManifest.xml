@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Even accidental network requests cannot reach a gateway from this isolated app ID. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <application>
+        <profileable android:shell="true" />
+        <activity android:name=".PerformanceFixtureActivity" android:exported="true"
+            android:theme="@style/Theme.HermesKotlin" />
+    </application>
+</manifest>

@@ -27,8 +27,10 @@ uses. The protocol itself is described in [hermes-protocol-research.md](hermes-p
 - [x] Secure storage on Android (AES-GCM key in the Android Keystore) for the session cookie jar
 - [ ] Secure storage on iOS (Keychain)
 - [x] Markdown rendering (`multiplatform-markdown-renderer`)
+- [x] Bounded Markdown/math preparation cache, background preparation for streaming and long replies, asynchronous parsing of long completed replies, and reusable transcript structure with lazy-list content types
 - [ ] Coil 3 for images
 - [x] Unit tests (Ktor `MockEngine`, coroutines-test)
+- [x] Synthetic Macrobenchmark startup, long-scroll, streaming and session-switch journeys, plus explicit app-specific Baseline Profile generation; commands and measurement limits in [PERFORMANCE.md](PERFORMANCE.md)
 - [x] CI on GitHub Actions: unit tests and a debug build on every push
 - [x] Android lint in CI (`lintDebug`); a baseline holds the old issues, so only new ones fail the build
 - [x] Releases: a `v1.2.3` tag builds a signed APK into a draft GitHub release; the app offers newer releases
@@ -96,8 +98,9 @@ uses. The protocol itself is described in [hermes-protocol-research.md](hermes-p
 - [x] Rename, pin, archive and delete (`PATCH`/`DELETE /api/sessions/{id}`), with optimistic updates that roll back on error
 - [x] Swipe a chat row: right pins or unpins, left archives (with Undo); in Archived, right unarchives and left deletes (after asking). A row's swipe wins over the drawer's swipe-left close; screen readers get the same actions
 - [x] Chat options (⋮ beside new chat) for the open chat: rename, pin, export as Markdown, copy session ID, archive, delete
-- [x] Floating see-through composer over the conversation
+- [x] Floating see-through composer over the conversation; compact when empty and unfocused, expanded for text, files, comments, dictation or edits
 - [x] Reading back stays put while a reply streams below; the jump arrow then reads "New reply"
+- [x] A counted Needs you entry opens a combined list of waiting ordinary and Bot Chats, using the same queue as Next waiting task
 - [x] Live list updates (`sessions.changed`, `session.title` → refetch; also refetch after reconnect)
 - [x] Live per-session status in the list, turns started on other clients included: `session.active_list` is asked on connect, after turn and list events, and every 10 s while the list shows; a chat waiting on a request this phone never saw reads "Waiting for you"
 - [x] Search sessions by title, session id and message text from the sidebar search button (`GET /api/sessions/search`, debounced, with match snippet)
@@ -117,7 +120,7 @@ uses. The protocol itself is described in [hermes-protocol-research.md](hermes-p
 - [x] Reasoning/thinking blocks, collapsible, with compact Markdown rendering (`reasoning.delta`, `thinking.delta`, `reasoning.available`)
 - [x] Stop a running turn (`session.interrupt`): the Send button turns into Stop while a turn runs
 - [x] Prompts sent from another client (Desktop, CLI, messaging) show up live: a turn this client didn't start refetches the transcript at its start and end, since the gateway streams only the reply
-- [x] Send while a reply runs, three ways: Steer (`session.steer`, the agent reads it after its current step; rejected → queued as the next prompt, a gateway without steering → plain `prompt.submit`), Queue (`prompt.submit {queued}`) and Stop & send (`session.interrupt`, wait for the turn to end, then `prompt.submit`). A Send button appears beside Stop; long-press it for a dropdown to pick the way for one message. `/steer <note>` uses `session.steer` too. A steer the turn ended before reading is requeued by the gateway and shows up as the next turn
+- [x] Send while a reply runs, three ways: Steer (`session.steer`, the agent reads it after its current step; rejected → queued as the next prompt, a gateway without steering → plain `prompt.submit`), Queue (`prompt.submit {queued}`) and Stop & send (`session.interrupt`, wait for the turn to end, then `prompt.submit`). A labelled Send button submits the draft; a separate Send mode menu selects its behavior without sending. Attachments explain the fallback from Steer to Queue. `/steer <note>` uses `session.steer` too. A steer the turn ended before reading is requeued by the gateway and shows up as the next turn
 - [x] Setting "While a reply is running, Send…": Steer (default), Queue or Stop & send
 - [x] Voice chat has its own composer button instead of sharing the send button
 - [x] Token usage per turn (live turns) and per session with cost, context window and account limits (`session.usage`, `MessageCompletePayload.usage`, `GET /api/sessions/{id}`)
@@ -153,6 +156,7 @@ uses. The protocol itself is described in [hermes-protocol-research.md](hermes-p
 - [x] Settings screen, opened from the account sheet
 - [x] Theme: system, light, dark, plus pure black; window and system bars follow it
 - [x] Text size on top of the system font scale
+- [x] Reading mode (Settings → Chat): top-aligned short conversations, folded reasoning and tool details, and reduced glow
 - [x] Chat background: a photo behind the conversation (frosted under the composer), with how strongly it shows
 - [x] Show or hide reasoning and tool activity in the chat
 - [x] Starting instruction (Settings › Chat): text every new chat started in Herald (chats, threads, the watch, the assistant) tells the agent first, such as "I'm on my phone: keep replies short". It goes into `session.create` as a hidden seed row (`display_kind: "hidden"`), so no client shows it
