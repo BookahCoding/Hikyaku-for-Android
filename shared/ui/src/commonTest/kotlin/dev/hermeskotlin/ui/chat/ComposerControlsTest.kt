@@ -29,6 +29,27 @@ class ComposerControlsTest {
     }
 
     @Test
+    fun slashCommandSpendsTheModeEvenWhenAQuotedCommentKeepsTheDraftNonempty() {
+        val modes = SendModeSelection()
+        val comments = listOf("Explain this quoted passage")
+        var text = "/help"
+        val sent = mutableListOf<RunningSend?>()
+        modes.select(RunningSend.StopAndSend)
+
+        modes.submit(true, RunningSend.Queue, false, command = true) { mode ->
+            sent.add(mode)
+            // ChatViewModel clears slash text but preserves comments for the next prompt.
+            text = ""
+        }
+        assertEquals(listOf<RunningSend?>(null), sent)
+        assertEquals(true, text.isNotBlank() || comments.isNotEmpty())
+        assertNull(modes.picked)
+
+        modes.submit(true, RunningSend.Queue, false) { sent.add(it) }
+        assertEquals(listOf(null, RunningSend.Queue), sent)
+    }
+
+    @Test
     fun anEmptyUnfocusedComposerStaysCompactEvenAtTheEnd() {
         assertEquals(0f, composerExpansion(focused = false, hasDraft = false, dictating = false, editing = false))
         assertEquals(1f, composerExpansion(focused = true, hasDraft = false, dictating = false, editing = false))

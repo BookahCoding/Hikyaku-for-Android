@@ -3007,15 +3007,15 @@ private fun Composer(
                         if (!state.running) Snug { VoiceChatButton(onClick = onVoiceChat, enabled = connected && !dictation.active) }
                         // Stop is on the live task card above; a message typed meanwhile is queued or steers the task.
                         if (state.running && hasText && !editing) {
-                            if (command) {
-                                // A command runs at once; there's nothing to choose.
-                                LabelledSendButton(onClick = { actions.send() }, enabled = connected)
-                            } else {
-                                LabelledSendButton(
-                                    onClick = { sendSelection.submit(state.running, runningSend, attachments.isNotEmpty(), actions::send) },
-                                    enabled = connected,
-                                )
-                            }
+                            LabelledSendButton(
+                                onClick = {
+                                    sendSelection.submit(
+                                        state.running, runningSend, attachments.isNotEmpty(),
+                                        command = command, send = actions::send,
+                                    )
+                                },
+                                enabled = connected,
+                            )
                         } else {
                             // While a task runs this only waits: nothing typed yet, or an edit, which goes once it ends.
                             LabelledSendButton(onClick = { actions.send() }, enabled = connected && hasText && !state.running)

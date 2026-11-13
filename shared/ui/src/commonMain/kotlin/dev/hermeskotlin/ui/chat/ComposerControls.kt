@@ -24,8 +24,14 @@ internal class SendModeSelection {
         else -> mode(running, setting, attachments)?.summary
     }
 
-    fun submit(running: Boolean, setting: RunningSend, attachments: Boolean, send: (RunningSend?) -> Unit) {
-        send(mode(running, setting, attachments))
+    fun submit(
+        running: Boolean,
+        setting: RunningSend,
+        attachments: Boolean,
+        command: Boolean = false,
+        send: (RunningSend?) -> Unit,
+    ) {
+        send(if (command) null else mode(running, setting, attachments))
         picked = null
     }
 }

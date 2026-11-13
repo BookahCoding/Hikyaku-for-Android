@@ -5,10 +5,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
-/** An exact preparation can also stand in for its append-only streaming continuation. */
+/** Keep an append-only reply visible while its next preparation finishes, including after completion. */
 internal data class PreparedMarkdown(val source: String, val content: String) {
-    fun visibleFor(text: String, streaming: Boolean): String? =
-        content.takeIf { source == text || (streaming && text.startsWith(source)) }
+    fun visibleFor(text: String): String? = content.takeIf { text.startsWith(source) }
 }
 
 /** A replacement must not inherit the Markdown library's retained parse of a different source. */

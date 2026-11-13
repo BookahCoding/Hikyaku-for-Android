@@ -48,13 +48,29 @@ class MarkdownPreparationTest {
     }
 
     @Test
-    fun previousRenderIsOnlyRetainedWhileTheSameStreamingTextGrows() {
+    fun previousRenderIsRetainedOnlyForTheSameOrAppendOnlyText() {
         val ready = PreparedMarkdown("one", "ONE")
-        assertEquals("ONE", ready.visibleFor("one more", streaming = true))
-        assertNull(ready.visibleFor("another message", streaming = true))
-        assertNull(ready.visibleFor("one more", streaming = false))
-        assertNull(ready.visibleFor("on", streaming = true))
-        assertEquals("ONE", ready.visibleFor("one", streaming = false))
+        assertEquals("ONE", ready.visibleFor("one more"))
+        assertNull(ready.visibleFor("another message"))
+        assertNull(ready.visibleFor("on"))
+        assertEquals("ONE", ready.visibleFor("one"))
+    }
+
+    @Test
+    fun completionKeepsThePreparedPrefixUntilTheFinalMathSuffixIsReady() = runTest {
+        val prefix = "A long reply stays visible. ".repeat(100)
+        val completed = prefix + "Final formula: \$x\$."
+        var ready = PreparedMarkdown(prefix, prefix)
+        val worker = StandardTestDispatcher(testScheduler)
+        val preparation = launch { ready = prepareMarkdown(completed, worker) }
+
+        // Completion has arrived, but the worker has not prepared its final delta yet.
+        assertFalse(preparation.isCompleted)
+        assertEquals(prefix, ready.visibleFor(completed))
+        runCurrent()
+        assertTrue(preparation.isCompleted)
+        assertEquals(prefix + "Final formula: ![math](herald-math:i:eA).", ready.visibleFor(completed))
+        assertNull(ready.visibleFor("A different reply."))
     }
 
     @Test

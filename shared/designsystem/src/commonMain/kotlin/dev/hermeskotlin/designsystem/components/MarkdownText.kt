@@ -181,7 +181,7 @@ private fun rememberPreparedMarkdown(text: String, streaming: Boolean): String {
         } else ready = exact
     }
     // A replacement starts empty rather than flashing another source or raw formula links.
-    return exact?.content ?: ready?.visibleFor(text, streaming).orEmpty()
+    return exact?.content ?: ready?.visibleFor(text).orEmpty()
 }
 
 @Composable
@@ -251,7 +251,8 @@ private fun PreparedMarkdownText(text: String, modifier: Modifier, streaming: Bo
             inlineContent = inlineContent,
             imageTransformer = PictureTransformer,
             components = components,
-            retainState = streaming,
+            // The outer continuity key discards replacements. Keep this reply through the final parse too.
+            retainState = true,
             immediate = !streaming && text.length <= IMMEDIATE_MARKDOWN_LIMIT,
         )
     }
