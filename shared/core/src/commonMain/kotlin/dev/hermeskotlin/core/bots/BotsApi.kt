@@ -7,6 +7,7 @@ import dev.hermeskotlin.core.rpc.RpcException
 import dev.hermeskotlin.core.profiles.UI_META_ATTEMPTS
 import dev.hermeskotlin.core.profiles.writeUiMeta
 import dev.hermeskotlin.core.sessions.createTitledChat
+import dev.hermeskotlin.core.slash.SlashResult
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -145,6 +146,55 @@ class BotsApi(private val connection: GatewayConnection) : BotChatBackend {
      */
     suspend fun sendToChat(profile: String?, storedSessionId: String, text: String) {
         val client = client()
+        val runtime = resumeRuntime(client, profile, storedSessionId)
+        client.request(
+            "prompt.submit",
+            buildJsonObject {
+                put("session_id", runtime)
+                put("text", text)
+            },
+        )
+    }
+
+    /**
+     * Runs the slash [command] (`/proposal yes 12`) in the bot's stored chat the way the composer does, never as a
+     * prompt: the chat is attached on this socket, then `slash.exec`, then `command.dispatch` for what the slash
+     * worker won't take. Returns what the command printed (may be empty). Throws when it can't be run, and when the
+     * gateway answers with anything but plain output (a skill or an alias would be sent on as a prompt to the model).
+     */
+    suspend fun runBotCommand(profile: String, storedSessionId: String, command: String): String {
+        require(command.startsWith("/") && command.length > 1) { "A command starts with a slash." }
+        val client = client()
+        val runtime = resumeRuntime(client, profile, storedSessionId)
+        val reply = try {
+            client.request(
+                "slash.exec",
+                buildJsonObject {
+                    put("session_id", runtime)
+                    put("command", command)
+                },
+                timeoutMs = COMMAND_TIMEOUT_MS,
+            )
+        } catch (e: RpcException) {
+            val name = command.removePrefix("/").substringBefore(' ')
+            val arg = command.removePrefix("/").substringAfter(' ', "").trim()
+            client.request(
+                "command.dispatch",
+                buildJsonObject {
+                    put("session_id", runtime)
+                    put("name", name)
+                    if (arg.isNotEmpty()) put("arg", arg)
+                },
+                timeoutMs = COMMAND_TIMEOUT_MS,
+            )
+        }
+        val result = SlashResult.parse(reply as? JsonObject) as? SlashResult.Output
+            ?: throw RpcException(0, "The gateway didn't run $command as a command.")
+        return result.text.trim()
+    }
+
+    /** Attaches [storedSessionId] on this socket and returns the runtime session id to speak to. */
+    private suspend fun resumeRuntime(client: JsonRpcClient, profile: String?, storedSessionId: String): String {
         val resumed = client.request(
             "session.resume",
             buildJsonObject {
@@ -155,14 +205,7 @@ class BotsApi(private val connection: GatewayConnection) : BotChatBackend {
                 put("omit_messages", true)
             },
         ) as? JsonObject
-        val runtime = (resumed?.get("session_id") as? JsonPrimitive)?.contentOrNull ?: throw RpcException(0, "Couldn't open the chat.")
-        client.request(
-            "prompt.submit",
-            buildJsonObject {
-                put("session_id", runtime)
-                put("text", text)
-            },
-        )
+        return (resumed?.get("session_id") as? JsonPrimitive)?.contentOrNull ?: throw RpcException(0, "Couldn't open the chat.")
     }
 
     /** What the editor shows of a bot beyond the roster: its SOUL and description (`profiles.describe`). */
@@ -251,6 +294,7 @@ class BotsApi(private val connection: GatewayConnection) : BotChatBackend {
         /** Same surface hint as [dev.hermeskotlin.core.chat.ChatSession]: Markdown and pictures show here. */
         private const val CLIENT_SOURCE = "desktop"
         private const val TERMINAL_COLUMNS = 80
+        private const val COMMAND_TIMEOUT_MS = 60_000L
 
         /** Making or copying a profile seeds its skills and writes files; it takes a while. */
         private const val SLOW_MS = 120_000L

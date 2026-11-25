@@ -125,4 +125,29 @@ class UpdateCheckerTest {
         assertNull(redirecting("https://example.com/repositories/1/releases/latest").check("o/r", "0.2.0"))
         assertNull(redirecting("https://api.github.com/repos/o/r/releases/latest").check("o/r", "0.2.0"))
     }
+
+    @Test
+    fun aCheckAskedForSaysNewerUpToDateOrFailed() = runTest {
+        assertEquals(UpdateCheck.Newer(checker().checkNowUpdate()), checker().checkNow("o/r", "0.2.0"))
+        assertEquals(UpdateCheck.UpToDate, checker().checkNow("o/r", "0.3.0"))
+        assertEquals(UpdateCheck.UpToDate, checker().checkNow("o/r", "1.0.0"))
+        // A check that couldn't be made isn't "up to date".
+        assertEquals(UpdateCheck.Failed, checker(HttpStatusCode.InternalServerError).checkNow("o/r", "0.2.0"))
+        assertEquals(UpdateCheck.Failed, checker(body = "not json").checkNow("o/r", "0.2.0"))
+        // A local build has no repo to ask.
+        assertEquals(UpdateCheck.Unavailable, checker().checkNow("", "0.2.0"))
+        assertEquals(UpdateCheck.Unavailable, checker().checkNow("o/r", "nightly"))
+    }
+
+    @Test
+    fun aCheckAskedForOffersAReleaseThatWasDismissed() = runTest {
+        val checker = checker()
+        checker.dismiss("0.3.0")
+        // The automatic check stays quiet about it, the one the person asked for doesn't.
+        assertNull(checker.check("o/r", "0.2.0"))
+        assertTrue(checker.checkNow("o/r", "0.2.0") is UpdateCheck.Newer)
+    }
+
+    private fun UpdateChecker.checkNowUpdate(): AppUpdate =
+        parseRelease(HermesJson.parseToJsonElement(release) as JsonObject, listOf("arm64-v8a"))!!
 }

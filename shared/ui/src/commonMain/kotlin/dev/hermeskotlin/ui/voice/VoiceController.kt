@@ -10,6 +10,8 @@ import dev.hermeskotlin.core.gateway.GatewayUrl
 import dev.hermeskotlin.core.network.ApiResult
 import dev.hermeskotlin.core.network.errorMessage
 import dev.hermeskotlin.core.phone.CallReason
+import dev.hermeskotlin.core.phone.CallClock
+import dev.hermeskotlin.core.phone.PreparedOpener
 import dev.hermeskotlin.core.phone.spokenOpener
 import dev.hermeskotlin.core.settings.DictationEngine
 import dev.hermeskotlin.core.voice.AudioApi
@@ -178,6 +180,8 @@ class VoiceController(
         profile: String?,
         pauseMs: Long = VoiceActivity().silenceMs,
         opener: CallReason? = null,
+        prepared: PreparedOpener? = null,
+        clock: CallClock? = null,
     ) {
         if (chatJob?.isActive == true) return
         cancelDictation()
@@ -199,7 +203,7 @@ class VoiceController(
         ) == true
         val job = scope.launch {
             try {
-                converseChained(session, gateway, profile, pauseMs, opener)
+                converseChained(session, gateway, profile, pauseMs, opener, prepared, clock)
             } finally {
                 // Also a chat ended before it found its mode (End during the status check). An ending the person
                 // chose needs no explanation; one forced by an error keeps it. A newer chat keeps its own.
@@ -219,7 +223,15 @@ class VoiceController(
     }
 
     /** Desktop's chained voice chat: listen, send what you said, read the reply aloud, until it ends. */
-    private suspend fun converseChained(session: ChatSession, gateway: GatewayUrl, profile: String?, pauseMs: Long, opener: CallReason?) = coroutineScope {
+    private suspend fun converseChained(
+        session: ChatSession,
+        gateway: GatewayUrl,
+        profile: String?,
+        pauseMs: Long,
+        opener: CallReason?,
+        prepared: PreparedOpener? = null,
+        clock: CallClock? = null,
+    ) = coroutineScope {
         appScope.launch { audio.ttsLease(gateway, active = true, profile) }
         // Read while the first listen goes on; it's needed once the first reply is on its way.
         val settings = async { audio.bargeIn(gateway, profile) }
@@ -231,7 +243,7 @@ class VoiceController(
             if (opener != null) {
                 val said = opener.spokenOpener()
                 _chat.update { it.copy(phase = VoicePhase.Speaking, caption = said, captionIsVoice = true) }
-                speak(said, gateway, profile)
+                speak(said, gateway, profile, prepared, clock)
             }
             while (currentCoroutineContext().isActive) {
                 val turn = converseOnce(session, gateway, profile, VoiceActivity(silenceMs = pauseMs), cutIn)
@@ -831,10 +843,16 @@ class VoiceController(
     }
 
     /** Reads [text] aloud in the voice chat; Skip cuts it. */
-    private suspend fun speak(text: String, gateway: GatewayUrl, profile: String?) = coroutineScope {
+    private suspend fun speak(
+        text: String,
+        gateway: GatewayUrl,
+        profile: String?,
+        prepared: PreparedOpener? = null,
+        clock: CallClock? = null,
+    ) = coroutineScope {
         voiced = text
         // A child of the conversation, so ending the chat stops the voice; skipping cancels only this.
-        val job = launch { voice(text, gateway, profile) { error -> _chat.update { it.copy(error = error) } } }
+        val job = launch { voice(text, gateway, profile, prepared = prepared, clock = clock) { error -> _chat.update { it.copy(error = error) } } }
         speechJob = job
         job.join()
         speechJob = null
@@ -851,18 +869,25 @@ class VoiceController(
         gateway: GatewayUrl,
         profile: String?,
         keptAs: String? = null,
+        /** The opening words of a call, made while it rang: its first piece plays instead of being asked for again. */
+        prepared: PreparedOpener? = null,
+        /** Times the opening words of a call, from the answer to the first sound. */
+        clock: CallClock? = null,
         onError: (String) -> Unit,
     ) = coroutineScope {
         val clips = Channel<SpokenAudio>(capacity = 1)
         launch {
-            for (chunk in speechChunks(text)) {
-                val clip = keptAs?.let { readAloudVoices.piece(it, chunk) } ?: when (val result = audio.speak(gateway, chunk, profile)) {
+            for ((index, chunk) in speechChunks(text).withIndex()) {
+                if (index == 0) clock?.mark(CallClock.OPENER_START)
+                val ready = if (index == 0 && prepared != null && prepared.matches(gateway, profile, text)) prepared.takeFirst(chunk) else null
+                val clip = ready ?: keptAs?.let { readAloudVoices.piece(it, chunk) } ?: when (val result = audio.speak(gateway, chunk, profile)) {
                     is ApiResult.Success -> result.value.also { made -> keptAs?.let { readAloudVoices.keep(it, chunk, made) } }
                     else -> {
                         onError(result.errorMessage ?: "Couldn't voice the reply.")
                         break
                     }
                 }
+                if (index == 0) clock?.mark(if (ready != null) CallClock.OPENER_CLIP_PREPARED else CallClock.OPENER_CLIP)
                 clips.send(clip)
             }
             clips.close()
@@ -870,6 +895,7 @@ class VoiceController(
         for (clip in clips) {
             try {
                 playing.value = true
+                clock?.played()
                 player.play(clip)
             } catch (e: CancellationException) {
                 throw e

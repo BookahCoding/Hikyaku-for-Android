@@ -44,6 +44,7 @@ import com.composeunstyled.Text
 import com.composeunstyled.UnstyledIcon
 import com.composeunstyled.theme.Theme
 import com.composables.icons.lucide.Send
+import dev.hermeskotlin.core.bots.ProposalMarker
 import dev.hermeskotlin.core.chat.ChatMessage
 import dev.hermeskotlin.core.chat.DeliveryOutcome
 import dev.hermeskotlin.core.chat.ToolActivity
@@ -337,8 +338,10 @@ private fun FoldedLine(icon: ImageVector, title: String, tint: Color = Theme[col
 
 /** A routine's output as a card: the job's name, its first lines, and "Show all" for the rest. */
 @Composable
-private fun RoutineCard(event: TranscriptEvent.Routine) {
+private fun RoutineCard(delivered: TranscriptEvent.Routine) {
     var open by remember { mutableStateOf(false) }
+    // The plugin's machine markers are for the buttons, not the reader.
+    val event = remember(delivered) { if (delivered.body.contains("[proposal", ignoreCase = true)) delivered.copy(body = ProposalMarker.without(delivered.body)) else delivered }
     Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             UnstyledIcon(Lucide.AlarmClock, contentDescription = null, tint = Theme[colors][textTertiary], modifier = Modifier.size(15.dp))

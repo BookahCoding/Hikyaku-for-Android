@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import dev.hermeskotlin.core.phone.CallClock
 import dev.hermeskotlin.core.chat.InputRequest
 import dev.hermeskotlin.ui.calls.IncomingCallScreen
 import dev.hermeskotlin.ui.calls.agentCallReason
@@ -67,6 +68,8 @@ class IncomingCallActivity : ComponentActivity(), OutOfSight {
 
     /** Unlocks first: the chat it opens answers for whoever holds the phone. */
     private fun answer(requestId: String) {
+        // The tap itself, before the unlock and the call screen: where the wait the person feels starts.
+        notifications.ringing.value[requestId]?.agent?.clock?.mark(CallClock.TAP)
         val open = notifications.answer(requestId) ?: return finish()
         // Hermes on the line: the call screen picks up itself, once this screen has unlocked the phone. Asked from
         // the call screen's own onCreate the unlock can fail before that window has focus, and it hung up unseen.

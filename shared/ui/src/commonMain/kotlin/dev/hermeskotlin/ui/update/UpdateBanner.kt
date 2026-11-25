@@ -30,6 +30,7 @@ import com.composeunstyled.UnstyledButton
 import com.composeunstyled.UnstyledIcon
 import com.composeunstyled.theme.Theme
 import dev.hermeskotlin.core.update.AppUpdate
+import dev.hermeskotlin.core.update.UpdateCheck
 import dev.hermeskotlin.core.update.UpdateChecker
 import dev.hermeskotlin.designsystem.accent
 import dev.hermeskotlin.designsystem.bodySmall
@@ -48,10 +49,18 @@ import dev.hermeskotlin.designsystem.components.MinTouchTarget
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
-/** A newer release, if one was found, and a way to stop offering it. */
-class UpdateOffer(val update: AppUpdate?, val onDismiss: () -> Unit)
+/** Where a check asked for in Settings stands. */
+enum class ManualCheck { Idle, Checking, UpToDate, Failed, Unavailable }
 
-val LocalUpdateOffer = compositionLocalOf { UpdateOffer(null) {} }
+/** A newer release, if one was found, a way to stop offering it, and Settings' "Check now". */
+class UpdateOffer(
+    val update: AppUpdate?,
+    val onDismiss: () -> Unit,
+    val manual: ManualCheck = ManualCheck.Idle,
+    val onCheckNow: () -> Unit = {},
+)
+
+val LocalUpdateOffer = compositionLocalOf { UpdateOffer(null, onDismiss = {}) }
 
 /**
  * Checks once per launch for a newer release of [repo] than [version] (both come from the build;
@@ -62,14 +71,32 @@ fun rememberUpdateOffer(repo: String?, version: String?, enabled: Boolean): Upda
     val checker = koinInject<UpdateChecker>()
     val scope = rememberCoroutineScope()
     var update by remember { mutableStateOf<AppUpdate?>(null) }
+    var manual by remember { mutableStateOf(ManualCheck.Idle) }
     LaunchedEffect(repo, version, enabled) {
         update = if (enabled && !repo.isNullOrBlank() && version != null) checker.check(repo, version) else null
     }
-    return UpdateOffer(update) {
-        val dismissed = update ?: return@UpdateOffer
-        update = null
-        scope.launch { checker.dismiss(dismissed.version) }
-    }
+    return UpdateOffer(
+        update,
+        onDismiss = {
+            val dismissed = update ?: return@UpdateOffer
+            update = null
+            scope.launch { checker.dismiss(dismissed.version) }
+        },
+        manual = manual,
+        onCheckNow = {
+            if (manual != ManualCheck.Checking) {
+                manual = ManualCheck.Checking
+                scope.launch {
+                    manual = when (val result = checker.checkNow(repo.orEmpty(), version.orEmpty())) {
+                        is UpdateCheck.Newer -> { update = result.update; ManualCheck.Idle }
+                        UpdateCheck.UpToDate -> ManualCheck.UpToDate
+                        UpdateCheck.Failed -> ManualCheck.Failed
+                        UpdateCheck.Unavailable -> ManualCheck.Unavailable
+                    }
+                }
+            }
+        },
+    )
 }
 
 /** A card offering the new release: download the APK (or open the release page), or not now. */

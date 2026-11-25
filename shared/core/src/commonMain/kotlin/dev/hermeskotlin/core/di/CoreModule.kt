@@ -58,6 +58,8 @@ import dev.hermeskotlin.core.bots.BotsApi
 import dev.hermeskotlin.core.projects.ProjectsApi
 import dev.hermeskotlin.core.threads.ThreadsApi
 import dev.hermeskotlin.core.threads.ThreadsRepository
+import dev.hermeskotlin.core.bots.ProposalAnswers
+import dev.hermeskotlin.core.storage.KeyValueStore
 import dev.hermeskotlin.core.bots.SidebarModeStore
 import dev.hermeskotlin.core.rooms.RoomLinks
 import dev.hermeskotlin.core.rooms.RoomSeenStore
@@ -107,6 +109,8 @@ val coreModule = module {
     single { DraftStore(get()) }
     single { ProfilesApi(get()) }
     single { ProfileStore(get()) }
+    // Which proposals this phone answered: shared by the notification's buttons and the chat's, kept across launches.
+    single { ProposalAnswers(get<KeyValueStore>(), get<CoroutineScope>()) }
     single { SettingsStore(get(), get()) }
     single {
         val client = get<HttpClient>()

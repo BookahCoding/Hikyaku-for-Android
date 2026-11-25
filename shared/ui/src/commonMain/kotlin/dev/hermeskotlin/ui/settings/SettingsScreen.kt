@@ -157,6 +157,8 @@ import dev.hermeskotlin.core.gateway.CheckStage
 import dev.hermeskotlin.core.gateway.StageResult
 import dev.hermeskotlin.ui.connect.ConnectionChecklist
 import dev.hermeskotlin.ui.sessions.SubpageHeader
+import dev.hermeskotlin.ui.update.LocalUpdateOffer
+import dev.hermeskotlin.ui.update.ManualCheck
 import dev.hermeskotlin.ui.update.UpdateBanner
 import org.koin.compose.viewmodel.koinViewModel
 import kotlin.math.roundToInt
@@ -747,6 +749,21 @@ internal fun SettingsView(
                         checked = settings.checkForUpdates,
                         onCheckedChange = { on -> onUpdate { it.copy(checkForUpdates = on) } },
                         icon = Lucide.RefreshCw,
+                    )
+                    val offer = LocalUpdateOffer.current
+                    val version = LocalAppVersion.current
+                    NavRow(
+                        title = "Check for updates now",
+                        detail = when (offer.manual) {
+                            ManualCheck.Checking -> "Checking GitHub…"
+                            ManualCheck.UpToDate -> "You're up to date${version?.let { " ($it)" }.orEmpty()}."
+                            ManualCheck.Failed -> "Couldn't reach GitHub. Try again in a moment."
+                            ManualCheck.Unavailable -> "This build isn't released from a repository, so it has nothing to check."
+                            ManualCheck.Idle -> if (offer.update != null) "Version ${offer.update.version} is out: see the card below."
+                            else "Asks GitHub now, even with the automatic check off."
+                        },
+                        icon = Lucide.Download,
+                        onClick = offer.onCheckNow,
                     )
                     UpdateBanner(Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
                     Divider()
