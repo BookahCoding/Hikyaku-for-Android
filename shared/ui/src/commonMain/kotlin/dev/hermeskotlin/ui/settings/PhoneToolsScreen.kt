@@ -56,6 +56,7 @@ import com.composables.icons.lucide.Wrench
 import com.composeunstyled.Text
 import com.composeunstyled.UnstyledIcon
 import com.composeunstyled.theme.Theme
+import dev.hermeskotlin.core.phone.CallTiming
 import dev.hermeskotlin.core.phone.PhoneTool
 import dev.hermeskotlin.core.phone.PhoneToolUse
 import dev.hermeskotlin.core.phone.PhoneToolsStatus
@@ -361,6 +362,13 @@ internal fun PhoneToolsView(
                                 Divider()
                                 TimeRow("Ends", settings.quietUntil) { picking = false }
                             }
+                        }
+                        // Only the time, from this app's own clock; nothing of what was said.
+                        val lastCall = CallTiming.last.collectAsStateWithLifecycle().value
+                        if (lastCall != null) {
+                            Divider()
+                            // The headline, then what each step took: the first words come after all of them.
+                            InfoRow("Last call", lastCall.replace(" | ", "\n"), maxLines = 12)
                         }
                     }
                     // Only once the gateway knows this phone: the list is the gateway's.

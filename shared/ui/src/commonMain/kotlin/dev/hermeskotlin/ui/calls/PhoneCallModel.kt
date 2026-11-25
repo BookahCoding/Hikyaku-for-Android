@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.hermeskotlin.core.chat.InputRequest
 import dev.hermeskotlin.core.phone.AgentCall
+import dev.hermeskotlin.core.phone.CallClock
 import dev.hermeskotlin.core.phone.CallOutcome
 import dev.hermeskotlin.core.settings.AppSettings
 import dev.hermeskotlin.core.settings.SettingsStore
@@ -81,7 +82,9 @@ class PhoneCallModel(
     private var placing: AgentCall? = null
 
     fun pickUp(call: PickedUpCall) {
-        if (_state.value == null) pickingUp = call
+        if (_state.value != null) return
+        pickingUp = call
+        call.agent?.clock?.mark(CallClock.ANSWERED)
     }
 
     /** The call picked up goes on the line. Once; a second start is ignored. */
@@ -90,6 +93,8 @@ class PhoneCallModel(
         if (_state.value != null || cleared) return
         pickingUp = null
         placing = call.agent
+        // Unlocked and the microphone allowed: from here the call is on its way to the line.
+        call.agent?.clock?.mark(CallClock.UNLOCKED)
         _state.value = PhoneCallState(call.caller)
         // Counted from here, so the gateway link stays up and the chat's turns aren't notified over the call.
         relay.callStarted()
@@ -108,10 +113,19 @@ class PhoneCallModel(
                 call.agent?.end(CallOutcome.Declined)
                 return@launch
             }
+            call.agent?.clock?.mark(CallClock.CHAT_READY)
             // On the line: the agent hears it was answered, and the voice opens with why it called.
             call.agent?.end(CallOutcome.Answered)
             val pause = (settings.settings.value ?: AppSettings()).voicePause
-            voice.startChat(chat.session, chat.gateway, chat.profile, pause.millis, opener = call.agent?.reason)
+            voice.startChat(
+                chat.session,
+                chat.gateway,
+                chat.profile,
+                pause.millis,
+                opener = call.agent?.reason,
+                prepared = call.agent?.prepared,
+                clock = call.agent?.clock,
+            )
             // A new chat gets its id with the first request: it's held from then on.
             if (call.storedSessionId == null) {
                 launch { relay.callChat(chat.session.state.mapNotNull { it.storedSessionId }.first()) }
@@ -136,6 +150,8 @@ class PhoneCallModel(
         // not when its time runs out. One already answered stays answered.
         pickingUp?.agent?.end(CallOutcome.Declined)
         placing?.end(CallOutcome.Declined)
+        // Whatever was made ready for the opening is dropped with the call.
+        (pickingUp?.agent ?: placing)?.prepared?.cancel()
         voice.stopAll()
         if (counted) relay.callEnded()
     }

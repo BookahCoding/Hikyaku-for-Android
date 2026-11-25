@@ -4,6 +4,7 @@ import android.os.Build
 import dev.hermeskotlin.android.phone.AndroidPhoneTools
 import dev.hermeskotlin.android.phone.ChatTargets
 import dev.hermeskotlin.android.phone.Geofences
+import dev.hermeskotlin.core.phone.CallOpenerPrefetch
 import dev.hermeskotlin.core.phone.CallOpeners
 import dev.hermeskotlin.core.phone.WatchedPlaces
 import dev.hermeskotlin.android.phone.PhoneConfirmations
@@ -32,14 +33,17 @@ val notifyModule = module {
         val koin = getKoin()
         // A voice chat or a call already on, here or from the watch, has you: a question there is asked on it, and
         // one elsewhere waits as a notification, not rung over it.
-        ChatNotifications(androidContext(), get(), get<ProfileGate>()).apply {
+        ChatNotifications(androidContext(), get(), get<ProfileGate>(), get()).apply {
             voiceOn = { koin.get<VoiceCallKeeper>().holding || koin.get<WatchRelay>().onCall }
+            openerPrefetch = koin.get<CallOpenerPrefetch>()
             quietUntil = {
                 val now = LocalTime.now()
                 koin.get<SettingsStore>().settings.value?.takeIf { it.quietNow(now.hour * 60 + now.minute) }?.quietUntil
             }
         }
     }
+    // The opening words of a call the agent places, made while the phone rings.
+    single { CallOpenerPrefetch(get(), get(), get(), get()) }
     // Why the agent called, from the call picked up on the watch to the call the watch starts.
     single { CallOpeners() }
     single { VoiceCallKeeper(androidContext()) } bind VoiceKeepAlive::class

@@ -208,6 +208,7 @@ import com.composeunstyled.UnstyledTextField
 import com.composeunstyled.theme.Theme
 import com.composeunstyled.theme.rememberColoredIndication
 import dev.hermeskotlin.core.chat.Attachment
+import dev.hermeskotlin.core.bots.ProposalMarker
 import dev.hermeskotlin.core.chat.ChatMessage
 import dev.hermeskotlin.core.chat.TranscriptEvent
 import dev.hermeskotlin.core.chat.GatewayNotice
@@ -1502,9 +1503,18 @@ private fun Messages(
                             }
                             // An answer to another bot's message folds under it; never while it's still being written.
                             val to = message.repliedTo
-                            if (to != null && !message.streaming) RepliedToFold(to, message.text, reply) else reply()
+                            // A Column: this Box stacks its children, which put the buttons over the reply's header.
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if (to != null && !message.streaming) RepliedToFold(to, message.text, reply) else reply()
+                                // A message that asks about a proposal: Approve and Deny, then what came of it.
+                                ProposalButtons(message, messages.subList(index + 1, messages.size), actions.proposals)
+                            }
                         }
-                        is ChatMessage.Event -> TranscriptEventRow(message.event)
+                        is ChatMessage.Event -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TranscriptEventRow(message.event)
+                            // A delivery (the proposals job's output) can ask about a proposal too.
+                            ProposalButtons(message, messages.subList(index + 1, messages.size), actions.proposals)
+                        }
                         is ChatMessage.Command -> CommandOutput(message)
                         is ChatMessage.Notice -> NoticeLine(message)
                     }
@@ -2096,7 +2106,9 @@ private fun AssistantReply(
     // Pictures and files the reply delivered show as themselves, not as Markdown a renderer can't load.
     // Pictures image_generate made show where it ran, as on Desktop: the model may never name them.
     val generated = remember(message.tools) { message.tools.mapNotNull { it.generatedImage }.distinctBy { it.source } }
-    val (text, media) = remember(message.text, generated, unservable) { extractReplyMedia(message.text, generated + unservable) }
+    // The plugin's machine markers are for the buttons, not the reader.
+    val shownText = remember(message.text) { if (message.text.contains("[proposal", ignoreCase = true)) ProposalMarker.without(message.text) else message.text }
+    val (text, media) = remember(shownText, generated, unservable) { extractReplyMedia(shownText, generated + unservable) }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         ReplyHeader(message.timestamp.takeUnless { message.streaming })
         // What's happening now is said once, above the composer; the reply keeps only what it's made of.

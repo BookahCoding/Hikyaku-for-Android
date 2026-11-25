@@ -1,6 +1,7 @@
 package dev.hermeskotlin.android
 
 import android.app.Application
+import android.util.Log
 import android.content.Intent
 import dev.hermeskotlin.android.notify.BotNotifier
 import dev.hermeskotlin.android.notify.ChatNotifier
@@ -13,6 +14,7 @@ import dev.hermeskotlin.android.wear.WatchAccentSync
 import dev.hermeskotlin.android.wear.WatchRinger
 import dev.hermeskotlin.android.wear.WearRequests
 import dev.hermeskotlin.android.wear.wearModule
+import dev.hermeskotlin.core.phone.CallTiming
 import dev.hermeskotlin.core.phone.PhoneToolsBridge
 import dev.hermeskotlin.core.push.PushSetup
 import dev.hermeskotlin.core.settings.AppLockTimer
@@ -33,6 +35,8 @@ class HermesApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Timings of a call from ringing to its first words: stage names and milliseconds, never what was said.
+        CallTiming.sink = { Log.i("CallTiming", it) }
         val koin = startKoin {
             androidContext(this@HermesApplication)
             modules(sharedModules + notifyModule + wearModule)

@@ -23,6 +23,9 @@ interface ChatActions {
     /** What's being typed. */
     val composer: TextFieldState
 
+    /** The buttons under a message that asks about a proposal; the chat shows none without it (previews). */
+    val proposals: ProposalInline? get() = null
+
     /**
      * Sends the composer. Mid-turn it goes the way [mode] says (steered in, queued, or sent after a stop),
      * or as [runningSend] says when no mode was picked for this message.

@@ -17,6 +17,18 @@ import kotlinx.serialization.json.contentOrNull
 /** A release newer than the installed app. [apkUrl] is the APK attached to it, when there is one. */
 data class AppUpdate(val version: String, val pageUrl: String, val apkUrl: String?)
 
+/** The outcome of asking GitHub for the latest release. */
+sealed interface UpdateCheck {
+    data class Newer(val update: AppUpdate) : UpdateCheck
+    data object UpToDate : UpdateCheck
+
+    /** GitHub couldn't be asked, or its answer wasn't a release. */
+    data object Failed : UpdateCheck
+
+    /** This build isn't released from a repo (a local build), so there's nothing to ask. */
+    data object Unavailable : UpdateCheck
+}
+
 /** The ABIs this device runs, most preferred first (`Build.SUPPORTED_ABIS`). */
 internal expect fun deviceAbis(): List<String>
 
@@ -33,27 +45,36 @@ class UpdateChecker(
 
     /** The latest release of [repo] (`owner/name`) when it is newer than [current], unless it was dismissed. */
     suspend fun check(repo: String, current: String): AppUpdate? {
-        if (repo.isBlank() || parseVersion(current) == null) return null
-        val release = try {
-            // A renamed repo answers at its old name with a redirect; the client doesn't follow those itself.
-            var url = "$GITHUB_API/repos/$repo/releases/latest"
-            var response = latest(url)
-            repeat(MAX_REDIRECTS) {
-                if (response.status.value !in REDIRECTS) return@repeat
-                url = response.headers[HttpHeaders.Location]?.takeIf { it.startsWith("$GITHUB_API/") } ?: return null
-                response = latest(url)
-            }
-            if (!response.status.isSuccess()) return null
-            HermesJson.parseToJsonElement(response.bodyAsText()) as? JsonObject
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            null
-        } ?: return null
-        val update = parseRelease(release, abis) ?: return null
-        if (!isNewer(update.version, current)) return null
+        val update = (checkNow(repo, current) as? UpdateCheck.Newer)?.update ?: return null
         if (store.get(DISMISSED_KEY) == update.version) return null
         return update
+    }
+
+    /**
+     * What Settings' "Check now" shows: asked on request, so a release the person dismissed is offered again, and a
+     * check that couldn't be made says so instead of looking like "up to date".
+     */
+    suspend fun checkNow(repo: String, current: String): UpdateCheck {
+        if (repo.isBlank() || parseVersion(current) == null) return UpdateCheck.Unavailable
+        val release = fetchLatest(repo) ?: return UpdateCheck.Failed
+        val update = parseRelease(release, abis) ?: return UpdateCheck.Failed
+        return if (isNewer(update.version, current)) UpdateCheck.Newer(update) else UpdateCheck.UpToDate
+    }
+
+    private suspend fun fetchLatest(repo: String): JsonObject? = try {
+        // A renamed repo answers at its old name with a redirect; the client doesn't follow those itself.
+        var url = "$GITHUB_API/repos/$repo/releases/latest"
+        var response = latest(url)
+        repeat(MAX_REDIRECTS) {
+            if (response.status.value !in REDIRECTS) return@repeat
+            url = response.headers[HttpHeaders.Location]?.takeIf { it.startsWith("$GITHUB_API/") } ?: return null
+            response = latest(url)
+        }
+        if (!response.status.isSuccess()) null else HermesJson.parseToJsonElement(response.bodyAsText()) as? JsonObject
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
     }
 
     /** Stops offering [version]; a later one is offered again. */

@@ -28,6 +28,12 @@ enum class CallOutcome(val status: String) {
 class AgentCall(val reason: CallReason) {
     private val ended = CompletableDeferred<CallOutcome>()
 
+    /** Where the time goes from ringing to the first words; stage names and milliseconds only. */
+    val clock = CallClock().also { it.mark(CallClock.RING) }
+
+    /** The opening words, made while it rings; the call that answers takes it, and a call that ends drops it. */
+    var prepared: PreparedOpener? = null
+
     /** Settles the call as [outcome]; later ones are ignored. */
     fun end(outcome: CallOutcome) {
         ended.complete(outcome)

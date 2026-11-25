@@ -14,7 +14,13 @@ import dev.hermeskotlin.core.chat.ChatMessage
 import dev.hermeskotlin.core.chat.ChatSession
 import dev.hermeskotlin.core.threads.ChatThread
 import dev.hermeskotlin.core.threads.ThreadsRepository
+import dev.hermeskotlin.core.bots.Bot
 import dev.hermeskotlin.core.bots.BotsApi
+import dev.hermeskotlin.core.bots.ProposalAnswerer
+import dev.hermeskotlin.core.bots.ProposalAnswers
+import dev.hermeskotlin.core.bots.ProposalChat
+import dev.hermeskotlin.core.bots.ProposalMarker
+import dev.hermeskotlin.core.bots.ProposalsState
 import dev.hermeskotlin.core.chat.ChatState
 import dev.hermeskotlin.core.chat.ComposeDraft
 import dev.hermeskotlin.core.chat.ControlAction
@@ -224,6 +230,8 @@ class ChatViewModel(
     deviceLock: DeviceLock = DeviceLock.None,
     /** The Next Prompt plugin's suggestions; none without it. */
     nextPromptApi: NextPromptApi? = null,
+    /** Which proposals were answered, shared with the notifications' buttons; in memory without one. */
+    proposalLedger: ProposalAnswers? = null,
 ) : ViewModel(), ChatActions {
 
     /** Dictation, voice chat and Read aloud for the open chat. */
@@ -293,6 +301,34 @@ class ChatViewModel(
     val state: StateFlow<ChatState> = session
         .flatMapLatest { it?.state ?: flowOf(ChatState()) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, ChatState())
+
+    private val ledger = proposalLedger ?: ProposalAnswers()
+
+    /** The name proposals are filed under: the chat's profile, "default" for the launch profile (as the notifications do). */
+    private fun proposalBot(): String = target?.profile ?: Bot.DEFAULT
+
+    private val answerer = ProposalAnswerer(ledger, bots, deviceLock, appScope)
+
+    /** The buttons under a message that asks about a proposal. */
+    override val proposals: ProposalInline = object : ProposalInline {
+        override val bot: String get() = proposalBot()
+        override val state: StateFlow<ProposalsState> = ledger.flow
+        override val errors: StateFlow<Map<String, String>> = answerer.errors
+        override fun answer(number: Int, approve: Boolean) {
+            answerer.answer(proposalBot(), session.value?.state?.value?.storedSessionId, number, approve)
+        }
+    }
+
+    init {
+        // How a proposal ended, said in a later message, is kept like an answer given here: a chat reopened after the
+        // messages scrolled away still shows it.
+        viewModelScope.launch {
+            state
+                .map { chat -> ProposalChat.endings(chat.messages) }
+                .distinctUntilChanged()
+                .collect { endings -> endings.forEach { (number, outcome) -> ledger.record(proposalBot(), number, outcome.approve, outcome.text) } }
+        }
+    }
 
     private val _picker = MutableStateFlow(ModelPickerState())
     private var loadJob: Job? = null
@@ -876,13 +912,22 @@ class ChatViewModel(
         }
     }
 
+    /** A typed `/proposal yes 12` that went through: kept as an answer, so the buttons and notification show it too. */
+    private fun recordTypedProposalAnswer(chat: ChatSession, command: SlashCommand) {
+        if (command.name != "proposal") return
+        val (approve, number) = ProposalMarker.typedAnswer(command.arg) ?: return
+        val row = chat.state.value.messages.lastOrNull { it is ChatMessage.Command } as? ChatMessage.Command ?: return
+        if (row.running || row.failed) return
+        ledger.record(proposalBot(), number, approve, row.output.trim().ifBlank { if (approve) "Approved" else "Denied" })
+    }
+
     /** A command typed in the composer: answered here when this app has its own control for it, else run on the gateway. */
     private fun runCommand(chat: ChatSession, command: SlashCommand) {
         viewModelScope.launch {
             val arg = command.arg
             suspend fun onGateway() = chat.runCommand(command)?.let { text ->
                 if (composer.text.isEmpty()) composer.setTextAndPlaceCursorAtEnd(text)
-            }
+            }.also { recordTypedProposalAnswer(chat, command) }
             when (val route = SlashRoute.of(command.name, catalog())) {
                 // A bot keeps one chat forever, so a fresh start there is a fresh context, as on Desktop.
                 SlashRoute.NewChat -> when {

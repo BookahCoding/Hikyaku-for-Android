@@ -18,6 +18,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import dev.hermeskotlin.core.bots.Bot
+import dev.hermeskotlin.core.bots.ProposalAnswers
+import dev.hermeskotlin.core.bots.ProposalMarker
 import androidx.core.content.ContextCompat
 import dev.hermeskotlin.android.HeraldActivity
 import dev.hermeskotlin.android.R
@@ -26,12 +28,15 @@ import dev.hermeskotlin.core.chat.InputRequest
 import dev.hermeskotlin.core.connection.ConnectionState
 import dev.hermeskotlin.core.phone.AgentCall
 import dev.hermeskotlin.core.phone.CallOpeners
+import dev.hermeskotlin.core.phone.CallOpenerPrefetch
 import dev.hermeskotlin.core.phone.CallOutcome
+import dev.hermeskotlin.core.phone.PreparedOpener
 import dev.hermeskotlin.core.phone.CallReason
 import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.ui.calls.agentCallReason
 import dev.hermeskotlin.ui.calls.callReason
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -50,6 +55,8 @@ class ChatNotifications(
     private val openers: CallOpeners = CallOpeners(),
     /** The last check before a notification for a profile is posted, whoever asked: see [ProfileGate]. */
     private val profiles: ProfileGate = ProfileGate.AllowAll,
+    /** Which proposals were answered from a notification or the chat: see [ProposalAnswers]. */
+    val proposals: ProposalAnswers = ProposalAnswers(),
 ) {
 
     private val manager = NotificationManagerCompat.from(context)
@@ -127,6 +134,9 @@ class ChatNotifications(
 
     /** A voice chat or a call is on: nothing rings over it. */
     var voiceOn: () -> Boolean = { false }
+
+    /** Prepares the opening words of a call the agent places while it rings. */
+    var openerPrefetch: CallOpenerPrefetch? = null
 
     /**
      * When quiet hours end, in minutes into the day, while they're on now (Settings → Phone tools → Calls); else null.
@@ -331,9 +341,24 @@ class ChatNotifications(
             if (voiceOn()) null else postCall(Ringing(id, storedSessionId, title, null, talk = true, agent = call))
         } ?: return CallOutcome.Busy
         if (!rings) return null
+        var prepared: PreparedOpener? = null
+        var answered = false
         try {
-            return call.outcome()
+            // Made while it rings: answering then has the first words ready. Nothing plays before it's answered.
+            prepared = try {
+                openerPrefetch?.prepare(reason)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+            call.prepared = prepared
+            val outcome = call.outcome()
+            answered = outcome == CallOutcome.Answered
+            return outcome
         } finally {
+            // Declined, rung out, given up or replaced: nothing will speak it. An answered call takes it.
+            if (!answered) prepared?.cancel()
             // The tool gave up (switched off, out of time): it stops ringing.
             withContext(NonCancellable + Dispatchers.Main) { stopRinging(id) }
         }
@@ -503,7 +528,7 @@ class ChatNotifications(
 
     /** A finished turn, with an inline Reply that sends the next prompt to the same chat. */
     fun postReply(storedSessionId: String, title: String?, text: String, failed: Boolean) {
-        val preview = text.toPlainText().take(MAX_PREVIEW).ifBlank { if (failed) "The turn failed." else "Done." }
+        val preview = ProposalMarker.without(text).toPlainText().take(MAX_PREVIEW).ifBlank { if (failed) "The turn failed." else "Done." }
         val input = RemoteInput.Builder(NotificationActionReceiver.KEY_TEXT).setLabel("Message Shisha").build()
         val notification = base(CHANNEL_REPLIES, storedSessionId, title)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
@@ -532,7 +557,8 @@ class ChatNotifications(
      */
     fun postBotMessage(bot: Bot, picture: ByteArray?, storedSessionId: String, text: String, viaPush: Boolean = false) {
         if (!profiles.allowsHere(bot.name)) return
-        val preview = text.toPlainText().take(MAX_PREVIEW).ifBlank { return }
+        // The plugin's machine markers are for the buttons, not the reader.
+        val preview = ProposalMarker.without(text).toPlainText().take(MAX_PREVIEW).ifBlank { return }
         // One message can arrive both over the gateway socket and through push: the second copy is dropped.
         // The same words twice from one path are two messages (a bot repeating itself) and both notify.
         val now = System.currentTimeMillis()
@@ -546,6 +572,8 @@ class ChatNotifications(
             }
             recentBotMessages[key] = viaPush to now
         }
+        // A proposal waiting for an answer gets its own notification with Approve and Deny, not a line in the stack.
+        ProposalMarker.numberIn(text)?.let { return postProposal(bot.name, storedSessionId, it, text) }
         val shortcut = BotShortcuts.push(context, bot, picture)
         val person = BotShortcuts.person(bot, picture)
         val me = Person.Builder().setName("You").build()
@@ -677,7 +705,10 @@ class ChatNotifications(
 
     fun postCronRun(key: String, bot: String, job: String, title: String, text: String, failed: Boolean) {
         if (!profiles.allowsHere(bot)) return
-        val body = text.toPlainText().take(MAX_PREVIEW).ifBlank { if (failed) "The run failed." else "Finished." }
+        // The proposals job reports through here when it is followed: the question, with its buttons (the chat to
+        // answer in is looked up when one is tapped, as this run has no chat of its own).
+        if (!failed) ProposalMarker.numberIn(text)?.let { return postProposal(bot, null, it, text) }
+        val body = ProposalMarker.without(text).toPlainText().take(MAX_PREVIEW).ifBlank { if (failed) "The run failed." else "Finished." }
         val notification = base(if (failed) CHANNEL_INBOX_FAILED else CHANNEL_INBOX)
             .setContentTitle(if (failed) "$title failed" else title)
             .setContentText(body.lineSequence().firstOrNull { it.isNotBlank() }?.trim() ?: body)
@@ -687,6 +718,59 @@ class ChatNotifications(
             .build()
         post("cron:$bot/$job", INBOX_ID, notification)
     }
+
+    /**
+     * A proposal [number] of [bot] that asks for an answer: Approve and Deny, which send `/proposal yes|no N` into the
+     * bot's chat ([storedSessionId], or the bot's Bot Chat when null). Approve asks for an unlock first, like every
+     * answer in a notification. One notification per proposal, so two waiting at once don't hide each other and the
+     * same question arriving twice (push and chat) replaces itself. Never for one already answered.
+     */
+    private fun postProposal(bot: String, storedSessionId: String?, number: Int, text: String) {
+        if (proposals.answered(bot, number)) return
+        val body = ProposalMarker.without(text).toPlainText().take(MAX_PREVIEW).ifBlank { "Shisha proposes an action." }
+        fun button(approve: Boolean) = NotificationCompat.Action.Builder(
+            0,
+            if (approve) "Approve" else "Deny",
+            action(
+                if (approve) NotificationActionReceiver.ACTION_PROPOSAL_YES else NotificationActionReceiver.ACTION_PROPOSAL_NO,
+                "$bot/$number",
+            ) {
+                putExtra(NotificationActionReceiver.EXTRA_BOT, bot)
+                putExtra(NotificationActionReceiver.EXTRA_PROPOSAL, number)
+                storedSessionId?.let { putExtra(NotificationActionReceiver.EXTRA_SESSION_ID, it) }
+            },
+        ).setAuthenticationRequired(approve).build()
+        val notification = base(CHANNEL_REQUESTS, storedSessionId, null)
+            .setContentTitle("Proposal #$number")
+            .setContentText(body.lineSequence().firstOrNull { it.isNotBlank() }?.trim() ?: body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setOnlyAlertOnce(true)
+            .addAction(button(approve = true))
+            .addAction(button(approve = false))
+            .build()
+        post(proposalTag(bot, number), PROPOSAL_ID, notification)
+    }
+
+    /** What an answer tap turns the proposal's notification into: sending, then sent, or failed. [done] ends it for good. */
+    fun postProposalStatus(bot: String, number: Int, title: String, message: String, done: Boolean = false) {
+        val builder = base(CHANNEL_REQUESTS)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+        // Sending can't be swiped away until it settles, and goes by itself should Android kill the app meanwhile;
+        // a sent answer goes by itself too.
+        if (!done) builder.setOngoing(true).setAutoCancel(false).setTimeoutAfter(PROPOSAL_SENDING_MS) else builder.setTimeoutAfter(PROPOSAL_DONE_MS)
+        post(proposalTag(bot, number), PROPOSAL_ID, builder.build())
+    }
+
+    /** A failed answer: stays until read, so the proposal isn't left looking answered. */
+    fun postProposalFailure(bot: String, number: Int, message: String) =
+        post(proposalTag(bot, number), PROPOSAL_ID, base(CHANNEL_REQUESTS).setContentTitle("Proposal #$number: not sent").setContentText(message).build())
+
+    private fun proposalTag(bot: String, number: Int) = "$bot/proposal/$number"
 
     private fun openInbox(key: String): PendingIntent {
         val intent = appIntent()
@@ -777,6 +861,11 @@ class ChatNotifications(
         const val ROOM_ID = 6
         const val VOICE_ID = 7
         const val INBOX_ID = 8
+        const val PROPOSAL_ID = 11
+
+        /** How long "sent" stays up once a proposal is answered. */
+        private const val PROPOSAL_DONE_MS = 20_000L
+        private const val PROPOSAL_SENDING_MS = 60_000L
 
         /** On the launch intent of an Inbox notification: the run's key ([dev.hermeskotlin.core.inbox.InboxRun.key]). */
         const val EXTRA_OPEN_INBOX = "open_inbox"
